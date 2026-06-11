@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SUPERSET
 
-## Getting Started
+**No excuses. Log, lift, progress.**
 
-First, run the development server:
+A single-user, mobile-first gym + health PWA. Its job is to remove your excuses before they happen and make logging a set faster than not logging it.
+
+## The core principle
+
+**The LLM never invents a number.** Every weight, rep target, deload, and stop decision comes from a deterministic TypeScript engine ([`convex/engine.ts`](convex/engine.ts)) you can read and test. The model is only allowed to:
+
+1. **Ingest** — parse voice/text ("skullcrushers 50 for 8, brutal") into structured sets, read back for confirmation before saving.
+2. **Explain** — phrase the engine's prescription like a coach.
+
+Medication tracking is a logbook + reminders only — the app never advises dosing.
+
+## Features
+
+- **Progressive overload engine** — double progression, fatigue tags (`EZ / HARD / FAIL / DEAD`) mapped to reps-in-reserve, automatic layoff deloads, warmup ramp generation, junk-volume auto-stop.
+- **Two-tap set logging** with the engine's prescribed weight pre-filled, auto-starting rest timers.
+- **Voice logging** via Web Speech API + LLM parsing (confirm before save).
+- **Excuse-killer nudges** — scheduled emails (Resend) timed backward from your gym time ("freeze the water bottle", "charge your phone"), an excuse ledger, and weekly streaks.
+- **Coach memory** — the agent accumulates durable facts about you (injuries, patterns, preferences) that shape its tone and nudges — never the numbers. Inspect and delete them in Settings.
+- **e1RM history charts** per exercise.
+- **Black & white UI** with a user-choosable accent color.
+
+## Stack
+
+Next.js (App Router) · Convex (DB, scheduled functions, auth) · Convex Auth (password) · shadcn/ui + Tailwind v4 · OpenAI (ingest/coach only)
+
+## Setup
 
 ```bash
+npm install
+npx convex dev          # creates/links a deployment, pushes functions
+npx @convex-dev/auth    # generates auth keys on the deployment
+npx convex run seed:run # optional: seed exercises + program (edit convex/seed.ts first)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Optional env vars on the Convex deployment (`npx convex env set KEY value`):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `OPENAI_API_KEY` — enables voice ingest + coach phrasing (app degrades gracefully without it)
+- `RESEND_API_KEY`, `NUDGE_FROM` — enables nudge emails
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In the app: Settings → set your gym days, gym hour, and nudge email.
 
-## Learn More
+## Personal data
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`convex/seed.ts` is the only place personal training history lives. Replace its contents with your own lifts (or strip `HISTORY` entirely) before seeding.

@@ -128,3 +128,51 @@
     @apply font-sans;
   }
 }
+/* ---- Superset theme: pure black & white + one user-chosen accent ---- */
+/* The accent is set at runtime from settings (see AccentProvider). */
+:root {
+  --radius: 0rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0 0 0);
+  --border: oklch(0 0 0);
+  --input: oklch(0.92 0 0);
+  --primary: oklch(0 0 0);
+  --primary-foreground: oklch(1 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.42 0 0);
+  --ring: var(--accent-user);
+  --accent: var(--accent-user);
+  --accent-foreground: oklch(1 0 0);
+  --accent-user: oklch(0.55 0.22 25); /* default: signal red */
+}
+
+.dark {
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.08 0 0);
+  --card-foreground: oklch(1 0 0);
+  --border: oklch(1 0 0);
+  --input: oklch(0.2 0 0);
+  --primary: oklch(1 0 0);
+  --primary-foreground: oklch(0 0 0);
+  --muted: oklch(0.14 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+}
+
+@theme inline {
+  --font-display: var(--font-display);
+}
+
+.display {
+  font-family: var(--font-display), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono), monospace;
+}
