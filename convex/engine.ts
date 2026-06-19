@@ -155,6 +155,106 @@ export function warmupRamp(topWeight: number, cfg: ExerciseConfig): { weight: nu
   return ramp;
 }
 
+export interface SetTarget {
+  weight: number;
+  reps: number;
+}
+
+export interface RampPlan {
+  warmups: SetTarget[];
+  workingTargets: SetTarget[];
+}
+
+/**
+ * Build this session's ramping plan (the Naoufal "Nadapt" method) from the last
+ * session's sets for an exercise. Working sets climb in weight; each rung is the
+ * matching rung from last time with progressive overload applied:
+ *   - maxed the rep range with reps in reserve  -> add one increment, reset reps
+ *     toward the floor of the range,
+ *   - still had something left, in/under range  -> repeat weight, chase +1 rep,
+ *   - taken to failure / too tired              -> match it (no load added).
+ * Warmups carry over verbatim ("warmups stay the same"). With no history we
+ * return a default count of blank targets so the UI can render empty rows.
+ */
+export function rampPlan(cfg: ExerciseConfig, lastSessionSets: SetRecord[]): RampPlan {
+  const warmups = lastSessionSets
+    .filter((s) => s.isWarmup)
+    .map((s) => ({ weight: s.weight, reps: s.reps }));
+  const working = lastSessionSets.filter((s) => !s.isWarmup);
+
+  if (working.length === 0) {
+    const count = cfg.isCompound ? 5 : 4;
+    return {
+      warmups: [],
+      workingTargets: Array.from({ length: count }, () => ({ weight: 0, reps: cfg.repRangeMax })),
+    };
+  }
+
+  const workingTargets = working.map((s) => {
+    const rir = fatigueToRIR(s.fatigue);
+    if (s.reps >= cfg.repRangeMax && rir >= 1) {
+      return { weight: roundToIncrement(s.weight + cfg.weightIncrement, cfg.weightIncrement), reps: cfg.repRangeMin };
+    }
+    if (rir >= 1) {
+      return { weight: s.weight, reps: Math.min(s.reps + 1, cfg.repRangeMax) };
+    }
+    return { weight: s.weight, reps: s.reps };
+  });
+
+  return { warmups, workingTargets };
+}
+
+/**
+ * The adaptive layer over rampPlan. Given what's actually been logged this
+ * session, recommend the next working set. Defaults to the planned rung, but
+ * reacts to live performance: easy + beat target climbs faster; failure / too
+ * tired holds the load instead of climbing.
+ */
+export function nextSetTarget(
+  cfg: ExerciseConfig,
+  setsSoFarThisSession: SetRecord[],
+  plan: RampPlan
+): SetTarget {
+  const working = setsSoFarThisSession.filter((s) => !s.isWarmup);
+  const idx = working.length;
+  const fallback = plan.workingTargets[plan.workingTargets.length - 1] ?? { weight: 0, reps: cfg.repRangeMax };
+  const planned = plan.workingTargets[idx] ?? fallback;
+
+  if (idx === 0) return planned;
+
+  const last = working[idx - 1];
+  const rir = fatigueToRIR(last.fatigue);
+
+  // Taken to the limit last set — hold the load, don't keep climbing.
+  if (rir === 0) {
+    return { weight: last.weight, reps: Math.max(cfg.repRangeMin, last.reps) };
+  }
+
+  // Easy and met/beat the planned reps — climb a little faster than the plan.
+  if (rir >= 3 && last.reps >= (plan.workingTargets[idx - 1]?.reps ?? cfg.repRangeMax)) {
+    return {
+      weight: roundToIncrement(planned.weight + cfg.weightIncrement, cfg.weightIncrement),
+      reps: planned.reps,
+    };
+  }
+
+  return planned;
+}
+
+/**
+ * The hybrid guardrail, enforced by the engine (not the LLM). The model may
+ * propose a nudge from free-form context; we bound it to +/- one weight
+ * increment and +/- 2 reps off the engine baseline before it is ever shown.
+ */
+export function clampAdjustment(baseline: SetTarget, proposed: SetTarget, increment: number): SetTarget {
+  const weight = roundToIncrement(
+    Math.max(baseline.weight - increment, Math.min(baseline.weight + increment, proposed.weight)),
+    increment
+  );
+  const reps = Math.max(baseline.reps - 2, Math.min(baseline.reps + 2, proposed.reps));
+  return { weight, reps };
+}
+
 /**
  * Should the lifter stop this exercise now?
  * Stops grinding junk volume: reps collapsing below the floor, or two

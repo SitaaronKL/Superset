@@ -34,6 +34,9 @@ export default defineSchema({
     date: v.number(),
     status: v.union(v.literal("active"), v.literal("done"), v.literal("skipped")),
     notes: v.optional(v.string()),
+    // Exercises added ad-hoc during this session that aren't in the day template.
+    // The template's ordered list is the menu; this captures one-offs.
+    extraExerciseIds: v.optional(v.array(v.id("exercises"))),
   }).index("by_date", ["date"]),
 
   sets: defineTable({

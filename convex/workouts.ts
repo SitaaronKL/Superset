@@ -44,6 +44,76 @@ export const activeSession = query({
   },
 });
 
+// ---- Day template editing -------------------------------------------------
+
+export const createProgramDay = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db.query("programDays").withIndex("by_order").collect();
+    const nextOrder = all.reduce((m, d) => Math.max(m, d.order), -1) + 1;
+    return await ctx.db.insert("programDays", { name: args.name, order: nextOrder, exerciseIds: [] });
+  },
+});
+
+export const renameProgramDay = mutation({
+  args: { id: v.id("programDays"), name: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { name: args.name });
+  },
+});
+
+export const deleteProgramDay = mutation({
+  args: { id: v.id("programDays") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
+export const reorderProgramDays = mutation({
+  args: { orderedIds: v.array(v.id("programDays")) },
+  handler: async (ctx, args) => {
+    await Promise.all(args.orderedIds.map((id, i) => ctx.db.patch(id, { order: i })));
+  },
+});
+
+// Sets the ordered exercise list for a day. Array order IS the user's preferred
+// order (favorites first) — also used by drag-to-reorder in the session view.
+export const setDayExercises = mutation({
+  args: { id: v.id("programDays"), exerciseIds: v.array(v.id("exercises")) },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { exerciseIds: args.exerciseIds });
+  },
+});
+
+// Quick-add a reusable exercise. Compound vs isolation picks sensible defaults
+// for rep range / rest / increment; editable later in Settings.
+export const createExercise = mutation({
+  args: { name: v.string(), muscleGroup: v.string(), isCompound: v.boolean() },
+  handler: async (ctx, args) => {
+    const d = args.isCompound
+      ? { repRangeMin: 5, repRangeMax: 7, restSeconds: 150, weightIncrement: 5 }
+      : { repRangeMin: 8, repRangeMax: 12, restSeconds: 90, weightIncrement: 5 };
+    return await ctx.db.insert("exercises", {
+      name: args.name,
+      muscleGroup: args.muscleGroup,
+      isCompound: args.isCompound,
+      ...d,
+    });
+  },
+});
+
+export const addExerciseToSession = mutation({
+  args: { sessionId: v.id("sessions"), exerciseId: v.id("exercises") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+    const extra = session.extraExerciseIds ?? [];
+    if (!extra.includes(args.exerciseId)) {
+      await ctx.db.patch(args.sessionId, { extraExerciseIds: [...extra, args.exerciseId] });
+    }
+  },
+});
+
 export const startSession = mutation({
   args: { programDayId: v.optional(v.id("programDays")) },
   handler: async (ctx, args) => {
@@ -138,6 +208,51 @@ export const exerciseHistory = query({
         e1RM: Math.round(bestE1RM(ss)),
       }))
       .sort((a, b) => b.date - a.date);
+  },
+});
+
+// The most recent COMPLETED session's sets for an exercise, ordered by setIndex.
+// Drives warmup carry-over and the ramp plan. Excludes the active session so
+// today's in-progress sets don't feed back into today's targets.
+export const lastSessionSetsFor = query({
+  args: { exerciseId: v.id("exercises") },
+  handler: async (ctx, args) => {
+    const recent = await ctx.db
+      .query("sets")
+      .withIndex("by_exercise", (q) => q.eq("exerciseId", args.exerciseId))
+      .order("desc")
+      .take(100);
+    const bySession = new Map<string, Doc<"sets">[]>();
+    for (const s of recent) {
+      const k = s.sessionId as string;
+      if (!bySession.has(k)) bySession.set(k, []);
+      bySession.get(k)!.push(s);
+    }
+    for (const [sessionId, ss] of [...bySession.entries()].sort(
+      (a, b) => Math.max(...b[1].map((x) => x.loggedAt)) - Math.max(...a[1].map((x) => x.loggedAt))
+    )) {
+      const session = await ctx.db.get(sessionId as Id<"sessions">);
+      if (session && session.status === "done") {
+        return ss
+          .sort((a, b) => a.setIndex - b.setIndex)
+          .map((s) => ({ weight: s.weight, reps: s.reps, fatigue: s.fatigue, isWarmup: s.isWarmup }));
+      }
+    }
+    return [];
+  },
+});
+
+// Map of exerciseId -> last loggedAt, for the "rarely done" muting in the menu.
+export const exerciseRecency = query({
+  args: {},
+  handler: async (ctx) => {
+    const sets = await ctx.db.query("sets").collect();
+    const last: Record<string, number> = {};
+    for (const s of sets) {
+      const k = s.exerciseId as string;
+      if (!last[k] || s.loggedAt > last[k]) last[k] = s.loggedAt;
+    }
+    return last;
   },
 });
 
