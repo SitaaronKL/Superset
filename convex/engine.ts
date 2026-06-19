@@ -242,6 +242,36 @@ export function nextSetTarget(
 }
 
 /**
+ * A short, human reason for the next-set recommendation — so the coach card can
+ * explain itself instead of silently pre-filling a number.
+ */
+export function explainNextSet(
+  cfg: ExerciseConfig,
+  setsSoFarThisSession: SetRecord[],
+  plan: RampPlan,
+  lastSessionWorkingSets: SetRecord[]
+): string {
+  const hasHistory = plan.workingTargets.some((t) => t.weight > 0);
+  if (!hasHistory) {
+    return "No history yet — pick a weight you can hit for the top of the range with 2–3 reps in reserve.";
+  }
+
+  const working = setsSoFarThisSession.filter((s) => !s.isWarmup);
+  const idx = working.length;
+
+  if (idx > 0) {
+    const lastActual = working[idx - 1];
+    const rir = fatigueToRIR(lastActual.fatigue);
+    if (rir === 0) return `Last set went to failure — hold ${lastActual.weight} and bank the reps.`;
+    if (rir >= 3) return `That set looked easy — bumping up ${cfg.weightIncrement} lb.`;
+  }
+
+  const ref = lastSessionWorkingSets[idx];
+  if (ref) return `Last session set ${idx + 1} was ${ref.weight}×${ref.reps} — beat it.`;
+  return "You're past last session's sets — push for one more quality set.";
+}
+
+/**
  * The hybrid guardrail, enforced by the engine (not the LLM). The model may
  * propose a nudge from free-form context; we bound it to +/- one weight
  * increment and +/- 2 reps off the engine baseline before it is ever shown.

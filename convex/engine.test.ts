@@ -3,6 +3,7 @@ import {
   rampPlan,
   nextSetTarget,
   clampAdjustment,
+  explainNextSet,
   type ExerciseConfig,
   type SetRecord,
 } from "./engine";
@@ -78,6 +79,32 @@ describe("nextSetTarget", () => {
   it("ignores warmups when counting working sets", () => {
     const soFar: SetRecord[] = [{ weight: 20, reps: 12, isWarmup: true }];
     expect(nextSetTarget(SHOULDER, soFar, plan)).toEqual({ weight: 30, reps: 8 });
+  });
+});
+
+describe("explainNextSet", () => {
+  const plan = rampPlan(SHOULDER, shoulderLast);
+  const lastWorking = shoulderLast.filter((s) => !s.isWarmup);
+
+  it("explains the opening set by reference to last session", () => {
+    const msg = explainNextSet(SHOULDER, [], plan, lastWorking);
+    expect(msg).toContain("25");
+    expect(msg.toLowerCase()).toContain("beat");
+  });
+
+  it("explains holding after a failure set", () => {
+    const soFar: SetRecord[] = [{ weight: 30, reps: 8, fatigue: "failure", isWarmup: false }];
+    expect(explainNextSet(SHOULDER, soFar, plan, lastWorking).toLowerCase()).toContain("hold");
+  });
+
+  it("explains a bump after an easy set", () => {
+    const soFar: SetRecord[] = [{ weight: 30, reps: 12, fatigue: "ez", isWarmup: false }];
+    expect(explainNextSet(SHOULDER, soFar, plan, lastWorking).toLowerCase()).toMatch(/easy|bump|up/);
+  });
+
+  it("gives a no-history message when there is no plan data", () => {
+    const empty = rampPlan(SHOULDER, []);
+    expect(explainNextSet(SHOULDER, [], empty, []).toLowerCase()).toContain("history");
   });
 });
 

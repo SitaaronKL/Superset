@@ -4,15 +4,15 @@ import { useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
-import { rampPlan, nextSetTarget, type SetRecord, type SetTarget } from "../../../convex/engine";
+import { rampPlan, nextSetTarget, explainNextSet, type SetRecord, type SetTarget } from "../../../convex/engine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
-  MessageCircle, ChevronRight,
+  MessageCircle, ChevronRight, Sparkles,
 } from "lucide-react";
 
 const FATIGUE = [
@@ -147,40 +147,42 @@ function DayEditor({ day, onClose }: { day: Doc<"programDays">; onClose: () => v
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="rounded-2xl max-w-md">
-        <DialogHeader><DialogTitle className="display text-2xl">Edit day</DialogTitle></DialogHeader>
+    <Drawer open onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent className="max-w-md mx-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <DrawerHeader className="px-0 text-left"><DrawerTitle className="display text-2xl">Edit day</DrawerTitle></DrawerHeader>
 
-        <div className="flex gap-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-11 rounded-xl" />
-          <Button className="h-11 rounded-xl" disabled={!name.trim() || name === liveDay.name}
-            onClick={() => rename({ id: liveDay._id, name: name.trim() })}>Save</Button>
+        <div className="flex flex-col gap-3 overflow-y-auto">
+          <div className="flex gap-2">
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-11 rounded-xl" />
+            <Button className="h-11 rounded-xl" disabled={!name.trim() || name === liveDay.name}
+              onClick={() => rename({ id: liveDay._id, name: name.trim() })}>Save</Button>
+          </div>
+
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Order = your priority</p>
+          <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+            {ids.map((id, i) => (
+              <div key={id} className="flex items-center gap-1 rounded-xl bg-muted px-3 py-2">
+                <span className="flex-1 text-sm">{byId.get(id)?.name ?? "—"}</span>
+                <button onClick={() => move(i, i - 1)} disabled={i === 0} className="p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
+                <button onClick={() => move(i, i + 1)} disabled={i === ids.length - 1} className="p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
+                <button onClick={() => setExercises({ id: liveDay._id, exerciseIds: ids.filter((x) => x !== id) })}
+                  className="p-1.5 text-muted-foreground"><X size={16} /></button>
+              </div>
+            ))}
+            {ids.length === 0 && <p className="text-xs text-muted-foreground py-2">No exercises yet — add some below.</p>}
+          </div>
+
+          <AddExerciseDialog existingIds={new Set(ids)}
+            onPick={(exId) => setExercises({ id: liveDay._id, exerciseIds: [...ids, exId] })}
+            trigger={<Button variant="outline" className="h-11 rounded-xl gap-2"><Plus size={16} /> Add exercise</Button>} />
+
+          <button onClick={async () => { await remove({ id: liveDay._id }); onClose(); }}
+            className="mt-1 mb-2 text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 self-start">
+            <Trash2 size={13} /> Delete this day
+          </button>
         </div>
-
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground mt-1">Order = your priority</p>
-        <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
-          {ids.map((id, i) => (
-            <div key={id} className="flex items-center gap-1 rounded-xl bg-muted px-3 py-2">
-              <span className="flex-1 text-sm">{byId.get(id)?.name ?? "—"}</span>
-              <button onClick={() => move(i, i - 1)} disabled={i === 0} className="p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
-              <button onClick={() => move(i, i + 1)} disabled={i === ids.length - 1} className="p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
-              <button onClick={() => setExercises({ id: liveDay._id, exerciseIds: ids.filter((x) => x !== id) })}
-                className="p-1.5 text-muted-foreground"><X size={16} /></button>
-            </div>
-          ))}
-          {ids.length === 0 && <p className="text-xs text-muted-foreground py-2">No exercises yet — add some below.</p>}
-        </div>
-
-        <AddExerciseDialog existingIds={new Set(ids)}
-          onPick={(exId) => setExercises({ id: liveDay._id, exerciseIds: [...ids, exId] })}
-          trigger={<Button variant="outline" className="h-11 rounded-xl gap-2"><Plus size={16} /> Add exercise</Button>} />
-
-        <button onClick={async () => { await remove({ id: liveDay._id }); onClose(); }}
-          className="mt-1 text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 self-start">
-          <Trash2 size={13} /> Delete this day
-        </button>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -206,43 +208,45 @@ function AddExerciseDialog({ existingIds, onPick, trigger }: {
     .filter((e) => e.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="rounded-2xl max-w-md">
-        <DialogHeader><DialogTitle className="display text-2xl">Add exercise</DialogTitle></DialogHeader>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+      <DrawerContent className="max-w-md mx-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <DrawerHeader className="px-0 text-left"><DrawerTitle className="display text-2xl">Add exercise</DrawerTitle></DrawerHeader>
 
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-11 rounded-xl" />
-        <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
-          {available.map((e) => (
-            <button key={e._id} onClick={() => { onPick(e._id); setOpen(false); setQ(""); }}
-              className="rounded-xl bg-muted px-3 py-3 text-left text-sm active:bg-foreground active:text-background transition-colors flex justify-between items-center">
-              <span>{e.name}</span>
-              <span className="text-[10px] text-muted-foreground uppercase">{e.muscleGroup}</span>
-            </button>
-          ))}
-          {available.length === 0 && <p className="text-xs text-muted-foreground py-2">No matches — quick-add below.</p>}
-        </div>
-
-        <div className="border-t border-border pt-3 flex flex-col gap-2">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Quick-add new</p>
-          <Input value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Exercise name" className="h-11 rounded-xl" />
-          <div className="flex gap-2">
-            <Input value={quickGroup} onChange={(e) => setQuickGroup(e.target.value)} placeholder="Muscle group" className="h-11 rounded-xl" />
-            <button onClick={() => setCompound(!compound)}
-              className="rounded-xl px-3 text-[11px] tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
-              style={compound ? { background: "var(--foreground)", color: "var(--background)" } : undefined}>
-              {compound ? "COMPOUND" : "ISOLATION"}
-            </button>
+        <div className="flex flex-col gap-3 overflow-y-auto">
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-11 rounded-xl" />
+          <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+            {available.map((e) => (
+              <button key={e._id} onClick={() => { onPick(e._id); setOpen(false); setQ(""); }}
+                className="rounded-xl bg-muted px-3 py-3 text-left text-sm active:bg-foreground active:text-background transition-colors flex justify-between items-center">
+                <span>{e.name}</span>
+                <span className="text-[10px] text-muted-foreground uppercase">{e.muscleGroup}</span>
+              </button>
+            ))}
+            {available.length === 0 && <p className="text-xs text-muted-foreground py-2">No matches — quick-add below.</p>}
           </div>
-          <Button className="h-11 rounded-xl" disabled={!quickName.trim() || !quickGroup.trim()}
-            onClick={async () => {
-              const id = await createExercise({ name: quickName.trim(), muscleGroup: quickGroup.trim(), isCompound: compound });
-              onPick(id); setOpen(false);
-              setQuickName(""); setQuickGroup(""); setCompound(false); setQ("");
-            }}>Add</Button>
+
+          <div className="border-t border-border pt-3 flex flex-col gap-2 mb-2">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Quick-add new</p>
+            <Input value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Exercise name" className="h-11 rounded-xl" />
+            <div className="flex gap-2">
+              <Input value={quickGroup} onChange={(e) => setQuickGroup(e.target.value)} placeholder="Muscle group" className="h-11 rounded-xl" />
+              <button onClick={() => setCompound(!compound)}
+                className="rounded-xl px-3 text-[11px] tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
+                style={compound ? { background: "var(--foreground)", color: "var(--background)" } : undefined}>
+                {compound ? "COMPOUND" : "ISOLATION"}
+              </button>
+            </div>
+            <Button className="h-11 rounded-xl" disabled={!quickName.trim() || !quickGroup.trim()}
+              onClick={async () => {
+                const id = await createExercise({ name: quickName.trim(), muscleGroup: quickGroup.trim(), isCompound: compound });
+                onPick(id); setOpen(false);
+                setQuickName(""); setQuickGroup(""); setCompound(false); setQ("");
+              }}>Add</Button>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -418,9 +422,12 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const plan = rampPlan(exercise, last);
   const baseline = nextSetTarget(exercise, sets as SetRecord[], plan);
   const target = adjusted ?? baseline;
+  const recReason = explainNextSet(exercise, sets as SetRecord[], plan, last.filter((s) => !s.isWarmup));
 
-  const wVal = weight !== "" ? weight : target.weight > 0 ? String(target.weight) : "";
-  const rVal = reps !== "" ? reps : target.reps > 0 ? String(target.reps) : "";
+  // No silent autofill — the lifter applies the coach's recommendation explicitly.
+  const wVal = weight;
+  const rVal = reps;
+  const applyRec = () => { setWeight(target.weight > 0 ? String(target.weight) : ""); setReps(target.reps > 0 ? String(target.reps) : ""); };
 
   const loggedWarmups = sets.filter((s) => s.isWarmup);
   const loggedWorking = sets.filter((s) => !s.isWarmup);
@@ -496,22 +503,42 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             : <LoggedRow key={s._id} label={`SET ${i + 1}`} set={s} onTap={() => setEditingId(s._id)} />
         )}
 
-        {/* Active next-set row — the focal point */}
+        {/* Active next-set row — coach recommendation + entry */}
         <div className="rounded-xl p-3 flex flex-col gap-2.5" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={13} style={{ color: "var(--accent-user)" }} />
             <span className="text-[11px] font-bold tracking-widest" style={{ color: "var(--accent-user)" }}>
-              SET {workingDone + 1} — DO THIS
+              SUPERSET COACH
             </span>
-            {adjusted && <span className="text-[10px] text-muted-foreground">adjusted ↓</span>}
+            <span className="text-[11px] text-muted-foreground">· set {workingDone + 1}</span>
+            {adjusted && <span className="text-[10px] text-muted-foreground ml-auto">adjusted from your note</span>}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          {/* The recommendation — explicit, tap to apply (no silent autofill) */}
+          {target.weight > 0 ? (
+            <button onClick={applyRec}
+              className="rounded-lg bg-card/70 ring-1 ring-foreground/10 px-3 py-2.5 text-left active:opacity-70">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">recommends</span>
+                <span className="text-[10px] text-muted-foreground">tap to use →</span>
+              </div>
+              <div className="num text-2xl font-semibold mt-0.5">{target.weight} <span className="text-base text-muted-foreground">× {target.reps}</span></div>
+              <p className="text-xs text-muted-foreground mt-1 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
+            </button>
+          ) : (
+            <p className="text-xs text-muted-foreground px-1">{recReason}</p>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <label className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">weight</span>
-              <Input inputMode="decimal" value={wVal} onChange={(e) => setWeight(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
+              <Input inputMode="decimal" value={wVal} placeholder={target.weight > 0 ? String(target.weight) : "—"}
+                onChange={(e) => setWeight(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">reps</span>
-              <Input inputMode="numeric" value={rVal} onChange={(e) => setReps(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
+              <Input inputMode="numeric" value={rVal} placeholder={target.reps > 0 ? String(target.reps) : "—"}
+                onChange={(e) => setReps(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
             </label>
           </div>
           <EffortPills value={fatigue} onChange={setFatigue} />
