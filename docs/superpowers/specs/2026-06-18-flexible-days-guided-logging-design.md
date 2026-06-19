@@ -46,13 +46,22 @@ The user's logged sessions (8-7-25, 8-18-25, 9-8-25) confirm the ramp pattern.
 - No new medication/dosing logic.
 - Not rebuilding the exercise library schema; reusing `exercises` as-is.
 
-## Architectural invariant (preserved)
+## Architectural invariant (hybrid, engine-bounded)
 
-Every weight, rep target, and stop decision shown to the user originates in
-`engine.ts` (pure functions, no LLM). The LLM (`agent.ts`) may only (1) parse
-natural language into structured sets and (2) rephrase the engine's output. The
-new chat box obeys this: typed/spoken input is parsed into a logged set; the
-deterministic engine then recomputes the next row's target.
+The engine (`engine.ts`, pure functions, no LLM) sets the **baseline** weight/rep
+target and the stop decision from the user's real history. The LLM (`agent.ts`)
+may, in addition to (1) parsing natural language into structured sets and (2)
+rephrasing output, now (3) **propose a small adjustment** to the baseline based on
+free-form context the user gives ("shoulder felt tweaky", "slept badly", "felt
+easy").
+
+The guardrail is enforced by the **engine, not the LLM**: the model returns a
+proposed weight/reps + reason, and a pure function `clampAdjustment` bounds the
+change to **at most ±1 `weightIncrement` and ±2 reps** off the engine baseline
+before anything is shown or logged. If the model proposes something outside the
+band, it is clamped. The LLM never produces an unbounded number, and the user
+always sees the baseline plus the reason for any nudge (e.g. "Engine: 45×8 —
+nudged to 40×8 because you said your shoulder felt tweaky").
 
 ## Design
 
@@ -112,6 +121,12 @@ Add the ramp model:
   This preserves the ramp shape (each rung relative to the same rung last time)
   while pushing overload set-by-set.
 
+- **`clampAdjustment(baseline, proposed, increment)`** → enforces the hybrid
+  guardrail. Given the engine baseline `{weight, reps}` and the LLM's proposed
+  `{weight, reps}`, returns a result bounded to **±1 `increment` weight and ±2
+  reps** off baseline. This is the safety boundary — the LLM can suggest, the
+  engine decides what is allowed. Pure, unit-testable.
+
 - **`nextSetTarget(cfg, setsSoFarThisSession, rampPlan)`** → the adaptive layer:
   given what's actually been logged this session, return the next row's suggested
   `{weight, reps}`. Normally returns `rampPlan.workingTargets[nextIndex]`, but
@@ -146,11 +161,33 @@ All pure functions; unit-testable in isolation.
   - **Working-set rows**, each showing a faint ramp target ("Set 1 — try 35×12").
     Tap weight/reps to record actuals; tap an effort chip (EZ/HARD/FAIL/DEAD).
     On save, `nextSetTarget` recomputes and the next row's target updates.
-  - **Chat box** beneath the rows: type or speak ("felt heavy, dropped to 30 for
-    7"). `agent.ingest` parses it into a logged set; the engine recomputes the
-    next row. Optional one-line coach reply via `coachNote`. The coach never
-    invents a number.
+  - **Chat box** beneath the rows: type or speak. Two paths:
+    - Reporting a completed set ("dropped to 30 for 7, brutal") → `agent.ingest`
+      parses → logged set → engine recomputes next row.
+    - Giving context before a set ("shoulder feels tweaky today") → a new
+      `agent.adjustTarget` action proposes a nudge to the engine baseline;
+      `clampAdjustment` bounds it; the row shows the adjusted target + reason
+      ("nudged 45→40 because your shoulder felt tweaky").
+    Optional one-line coach reply via `coachNote`. The number shown is always the
+    engine baseline or the engine-clamped adjustment — never an unbounded LLM
+    value.
 - An exercise with zero sets at DONE is simply not done (no penalty, no warning).
+
+### 6. OpenAI models (`convex/agent.ts`)
+
+The code currently calls `gpt-5.2`, which OpenAI retired from ChatGPT on
+2026-06-12. Upgrade to the current flagship, **GPT-5.5** (released 2026-04-23):
+
+- `ingest` (voice/text → structured sets): `gpt-5.5` — fast, structured-output
+  parsing; high reasoning not needed.
+- `coachNote` (rephrase engine output): `gpt-5.5`.
+- `adjustTarget` (NEW — reason about free-form context to propose a bounded
+  nudge): `gpt-5.5` with a high reasoning tier, since this is the only
+  judgment-bearing call. Its output is still clamped by `clampAdjustment`.
+
+Model id is centralized in one constant in `agent.ts` so future upgrades are a
+one-line change. Graceful degradation already exists (no key → engine rationale
+shown verbatim) and is preserved.
 
 ## Testing
 
@@ -158,6 +195,9 @@ All pure functions; unit-testable in isolation.
   the user's seeded history (e.g., Seated Shoulder Press 25×12/35×12/45×7/45×4 →
   next-session ramp should push the matching rungs). Cover: overload bump, hold,
   drop on failure, no-history fallback, warmup carry-over.
+- **`clampAdjustment` tests**: proposal within band passes through; over-band weight
+  clamps to ±1 increment; over-band reps clamp to ±2; baseline returned when no
+  proposal.
 - **Mutation tests**: day CRUD, reorder, quick-add exercise defaults,
   add-to-session.
 - **Manual UI pass**: create a custom day, reorder exercises, log a ramped
