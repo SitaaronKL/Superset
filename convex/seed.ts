@@ -1,9 +1,11 @@
-// One-time seed. Personal training history is intentionally NOT committed
-// anywhere else in the repo — run `npx convex run seed:run` once on your own
-// deployment. Open-source users edit or skip this file.
-import { mutation } from "./_generated/server";
-
-const DAY = 24 * 60 * 60 * 1000;
+// One-time seed of personal training history from the Obsidian gym logs
+// (~/Documents/Ext-Brain/Improvement/Gym). Personal history is intentionally
+// NOT committed anywhere else in the repo. Run on your own deployment:
+//   npx convex run seed:run       (fresh install; aborts if already seeded)
+//   npx convex run seed:reseed    (wipes workout data and re-imports)
+// Open-source users edit or skip this file.
+import { mutation, type MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 type SeedSet = [weight: number, reps: number, fatigue?: "ez" | "struggle" | "failure" | "tooTired", warmup?: boolean];
 
@@ -31,179 +33,135 @@ const EXERCISES: {
   { name: "Leg Extension", muscleGroup: "Legs", repRange: [6, 8], rest: 90, increment: 10, compound: false },
 ];
 
-// From the Obsidian logs, Aug–Sep 2025. Best/most recent session per lift.
-const HISTORY: Record<string, { daysAgo: number; sets: SeedSet[] }> = {
-  "Bench Press": {
-    daysAgo: 275,
-    sets: [
-      [45, 12, undefined, true],
-      [90, 10, undefined, true],
-      [135, 6],
-      [145, 6],
-      [150, 4, "struggle"],
-      [160, 3, "failure"],
-      [135, 6, "struggle"],
-    ],
-  },
-  "Machine Chest Fly": {
-    daysAgo: 275,
-    sets: [
-      [90, 10],
-      [110, 10],
-      [120, 8, "struggle"],
-      [130, 5, "failure"],
-    ],
-  },
-  "Incline Dumbbell Press": {
-    daysAgo: 275,
-    sets: [
-      [35, 8],
-      [35, 5, "failure"],
-    ],
-  },
-  Skullcrushers: {
-    daysAgo: 275,
-    sets: [
-      [30, 12],
-      [40, 10],
-      [50, 8, "struggle"],
-      [60, 7, "failure"],
-    ],
-  },
-  "Tricep Pushdown": {
-    daysAgo: 275,
-    sets: [
-      [33, 12],
-      [44, 10],
-      [44, 8, "struggle"],
-    ],
-  },
-  "Bicep Curls": {
-    daysAgo: 275,
-    sets: [
-      [25, 10],
-      [30, 6, "struggle"],
-      [35, 4, "failure"],
-      [30, 6],
-    ],
-  },
-  "Hammer Curls": {
-    daysAgo: 275,
-    sets: [
-      [25, 10],
-      [30, 8],
-      [35, 6, "struggle"],
-      [40, 3, "failure"],
-    ],
-  },
-  "Seated Shoulder Press (DB)": {
-    daysAgo: 265,
-    sets: [
-      [20, 12, undefined, true],
-      [25, 12],
-      [30, 12],
-      [35, 7, "struggle"],
-      [40, 6, "failure"],
-    ],
-  },
-  "Lat Pulldown": {
-    daysAgo: 265,
-    sets: [
-      [105, 12],
-      [119, 10],
-      [126, 10, "struggle"],
-    ],
-  },
-  "Horizontal Row Machine": {
-    daysAgo: 265,
-    sets: [
-      [90, 10],
-      [110, 7, "failure"],
-    ],
-  },
-  "Leg Press": {
-    daysAgo: 260,
-    sets: [
-      [180, 12, undefined, true],
-      [240, 12],
-      [280, 12, "struggle"],
-      [300, 3, "failure"],
-    ],
-  },
-};
-
 const PROGRAM: [string, string[]][] = [
   ["Chest & Arms", ["Bench Press", "Machine Chest Fly", "Incline Dumbbell Press", "Skullcrushers", "Tricep Pushdown", "Bicep Curls", "Hammer Curls"]],
   ["Shoulders & Back", ["Seated Shoulder Press (DB)", "Lateral Raises", "Reverse Fly Machine", "Horizontal Row Machine", "Lat Pulldown"]],
   ["Legs", ["Leg Press", "Leg Extension"]],
 ];
 
+// Each real session from the Obsidian logs, oldest → newest, with its calendar
+// date [year, month(1-12), day]. Effort notes mapped: ez/easier → ez;
+// hard/struggle → struggle; failed/failure → failure; way too tired → tooTired.
+const SESSIONS: { date: [number, number, number]; day: string; entries: [string, SeedSet[]][] }[] = [
+  {
+    // Day 1 numbers from the Naoufal template (representative chest/arms session).
+    date: [2025, 8, 5],
+    day: "Chest & Arms",
+    entries: [
+      ["Bench Press", [[45, 12, undefined, true], [90, 10, undefined, true], [135, 6], [145, 6], [150, 4, "struggle"], [160, 3, "failure"], [136, 6, "struggle"]]],
+      ["Machine Chest Fly", [[90, 10], [110, 10], [120, 8, "struggle"], [130, 5, "failure"]]],
+      ["Incline Dumbbell Press", [[35, 8], [35, 5, "failure"]]],
+      ["Skullcrushers", [[30, 12], [40, 10], [50, 8, "struggle"], [60, 7, "failure"]]],
+      ["Tricep Pushdown", [[33, 12], [44, 10], [44, 8, "struggle"]]],
+      ["Bicep Curls", [[25, 10], [30, 6, "struggle"], [35, 4, "failure"], [30, 6]]],
+      ["Hammer Curls", [[25, 10], [30, 8], [35, 6, "struggle"], [40, 3, "failure"]]],
+    ],
+  },
+  {
+    date: [2025, 8, 7],
+    day: "Shoulders & Back",
+    entries: [
+      ["Seated Shoulder Press (DB)", [[20, 12, "ez", true], [25, 12, "ez"], [35, 12, "struggle"], [45, 8, "failure"], [45, 4, "failure"]]],
+      ["Lateral Raises", [[20, 10, "struggle"], [25, 10, "struggle"], [30, 7, "failure"]]],
+      ["Reverse Fly Machine", [[70, 7, "struggle"], [70, 6, "struggle"], [80, 3, "failure"], [60, 10, "tooTired"]]],
+      ["Horizontal Row Machine", [[88, 12, "struggle"], [99, 11, "failure"], [104, 10, "struggle"], [110, 7, "failure"]]],
+      ["Lat Pulldown", [[104, 12, "ez"], [110, 12, "ez"], [115, 10, "failure"], [121, 8, "failure"]]],
+    ],
+  },
+  {
+    date: [2025, 8, 8],
+    day: "Legs",
+    entries: [
+      ["Leg Press", [[200, 12], [240, 12], [280, 8, "struggle"], [280, 6, "struggle"], [300, 3, "failure"]]],
+      ["Leg Extension", [[125, 12], [165, 12], [185, 12, "struggle"], [205, 8, "failure"]]],
+    ],
+  },
+  {
+    date: [2025, 8, 18],
+    day: "Shoulders & Back",
+    entries: [
+      ["Seated Shoulder Press (DB)", [[25, 12, "ez", true], [30, 12, "ez"], [35, 12, "struggle"], [40, 8, "failure"], [45, 5, "failure"]]],
+      ["Lateral Raises", [[20, 10, "struggle"], [25, 12, "ez"], [30, 14, "failure"]]],
+      ["Reverse Fly Machine", [[60, 10, "failure"], [70, 6, "failure"], [70, 5, "failure"], [70, 3, "failure"]]],
+      ["Horizontal Row Machine", [[88, 12, "struggle"], [99, 12, "struggle"], [104, 6, "failure"], [110, 2, "failure"]]],
+      ["Lat Pulldown", [[104, 12, "ez"], [115, 12, "struggle"], [121, 10, "struggle"], [126, 10, "failure"]]],
+    ],
+  },
+  {
+    date: [2025, 9, 8],
+    day: "Shoulders & Back",
+    entries: [
+      ["Seated Shoulder Press (DB)", [[25, 12, "ez", true], [35, 12, "struggle"], [40, 12, "struggle"], [45, 7, "failure"], [30, 8, "failure"]]],
+      ["Lateral Raises", [[25, 12], [30, 12], [35, 12]]],
+      ["Lat Pulldown", [[104, 12]]],
+    ],
+  },
+];
+
+const DEFAULT_NUDGES: [string, string, number][] = [
+  ["freezeBottle", "Put a water bottle in the freezer now.", 600],
+  ["chargePhone", "Plug your phone in so it's at 100% by gym time.", 240],
+  ["planPreview", "Here's today's plan — leave soon.", 45],
+];
+
+async function populate(ctx: MutationCtx) {
+  const ids = new Map<string, Id<"exercises">>();
+  for (const e of EXERCISES) {
+    ids.set(e.name, await ctx.db.insert("exercises", {
+      name: e.name, muscleGroup: e.muscleGroup,
+      repRangeMin: e.repRange[0], repRangeMax: e.repRange[1],
+      restSeconds: e.rest, weightIncrement: e.increment, isCompound: e.compound,
+    }));
+  }
+
+  let order = 0;
+  for (const [name, exNames] of PROGRAM) {
+    await ctx.db.insert("programDays", { name, order: order++, exerciseIds: exNames.map((n) => ids.get(n)!) });
+  }
+
+  let sets = 0;
+  for (const s of SESSIONS) {
+    const date = Date.UTC(s.date[0], s.date[1] - 1, s.date[2], 18, 0, 0);
+    const sessionId = await ctx.db.insert("sessions", { date, status: "done", notes: "Imported from Obsidian logs" });
+    let i = 0;
+    for (const [exName, exSets] of s.entries) {
+      const exerciseId = ids.get(exName)!;
+      for (const [weight, reps, fatigue, warmup] of exSets) {
+        await ctx.db.insert("sets", {
+          sessionId, exerciseId, setIndex: i++, weight, reps, fatigue, isWarmup: warmup ?? false, loggedAt: date,
+        });
+        sets++;
+      }
+    }
+  }
+
+  for (const [kind, label, mins] of DEFAULT_NUDGES) {
+    await ctx.db.insert("nudges", { kind, label, minutesBeforeGym: mins, enabled: true });
+  }
+
+  return `Seeded ${EXERCISES.length} exercises, ${PROGRAM.length} days, ${SESSIONS.length} sessions, ${sets} sets.`;
+}
+
+async function wipe(ctx: MutationCtx) {
+  for (const table of ["sets", "sessions", "programDays", "exercises", "nudges"] as const) {
+    const rows = await ctx.db.query(table).collect();
+    for (const r of rows) await ctx.db.delete(r._id);
+  }
+}
+
 export const run = mutation({
   args: {},
   handler: async (ctx) => {
     const existing = await ctx.db.query("exercises").collect();
-    if (existing.length > 0) return "Already seeded — aborting.";
+    if (existing.length > 0) return "Already seeded — use seed:reseed to replace.";
+    return await populate(ctx);
+  },
+});
 
-    const ids = new Map<string, any>();
-    for (const e of EXERCISES) {
-      ids.set(
-        e.name,
-        await ctx.db.insert("exercises", {
-          name: e.name,
-          muscleGroup: e.muscleGroup,
-          repRangeMin: e.repRange[0],
-          repRangeMax: e.repRange[1],
-          restSeconds: e.rest,
-          weightIncrement: e.increment,
-          isCompound: e.compound,
-        })
-      );
-    }
-
-    let order = 0;
-    for (const [name, exNames] of PROGRAM) {
-      await ctx.db.insert("programDays", {
-        name,
-        order: order++,
-        exerciseIds: exNames.map((n) => ids.get(n)),
-      });
-    }
-
-    const now = Date.now();
-    const sessionDates = new Map<number, any>();
-    for (const [exName, h] of Object.entries(HISTORY)) {
-      const date = now - h.daysAgo * DAY;
-      if (!sessionDates.has(h.daysAgo)) {
-        sessionDates.set(
-          h.daysAgo,
-          await ctx.db.insert("sessions", { date, status: "done", notes: "Imported from Obsidian logs" })
-        );
-      }
-      const sessionId = sessionDates.get(h.daysAgo);
-      let i = 0;
-      for (const [weight, reps, fatigue, warmup] of h.sets) {
-        await ctx.db.insert("sets", {
-          sessionId,
-          exerciseId: ids.get(exName),
-          setIndex: i++,
-          weight,
-          reps,
-          fatigue,
-          isWarmup: warmup ?? false,
-          loggedAt: date,
-        });
-      }
-    }
-
-    const defaultNudges: [string, string, number][] = [
-      ["freezeBottle", "Put a water bottle in the freezer now.", 600],
-      ["chargePhone", "Plug your phone in so it's at 100% by gym time.", 240],
-      ["planPreview", "Here's today's plan — leave soon.", 45],
-    ];
-    for (const [kind, label, mins] of defaultNudges) {
-      await ctx.db.insert("nudges", { kind, label, minutesBeforeGym: mins, enabled: true });
-    }
-
-    return `Seeded ${EXERCISES.length} exercises, ${PROGRAM.length} program days, history for ${Object.keys(HISTORY).length} lifts.`;
+export const reseed = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await wipe(ctx);
+    return await populate(ctx);
   },
 });

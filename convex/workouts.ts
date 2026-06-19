@@ -155,6 +155,27 @@ export const logSet = mutation({
   },
 });
 
+export const updateSet = mutation({
+  args: {
+    setId: v.id("sets"),
+    weight: v.number(),
+    reps: v.number(),
+    fatigue: v.optional(fatigueValidator),
+    isWarmup: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { setId, ...patch } = args;
+    await ctx.db.patch(setId, patch);
+  },
+});
+
+export const deleteSet = mutation({
+  args: { setId: v.id("sets") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.setId);
+  },
+});
+
 export const sessionSets = query({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) =>

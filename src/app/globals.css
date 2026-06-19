@@ -131,12 +131,12 @@
 /* ---- Superset theme: pure black & white + one user-chosen accent ---- */
 /* The accent is set at runtime from settings (see AccentProvider). */
 :root {
-  --radius: 0rem;
+  --radius: 0.875rem; /* softened toward iOS-native rounding */
   --background: oklch(1 0 0);
   --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0 0 0);
-  --border: oklch(0 0 0);
+  --border: oklch(0.9 0 0); /* hairline dividers, not hard black */
   --input: oklch(0.92 0 0);
   --primary: oklch(0 0 0);
   --primary-foreground: oklch(1 0 0);
@@ -151,9 +151,9 @@
 .dark {
   --background: oklch(0 0 0);
   --foreground: oklch(1 0 0);
-  --card: oklch(0.08 0 0);
+  --card: oklch(0.11 0 0);
   --card-foreground: oklch(1 0 0);
-  --border: oklch(1 0 0);
+  --border: oklch(1 0 0 / 14%);
   --input: oklch(0.2 0 0);
   --primary: oklch(1 0 0);
   --primary-foreground: oklch(0 0 0);
@@ -171,8 +171,15 @@
   letter-spacing: 0.02em;
 }
 
+/* Numeric data (weights, reps, timers) keeps the mono for that fitness-tracker
+   feel; everything else uses the refined grotesque. */
+.num {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }

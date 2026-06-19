@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, IBM_Plex_Mono } from "next/font/google";
+import { Anton, IBM_Plex_Mono, Hanken_Grotesk } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -13,6 +13,14 @@ const display = Anton({
 const mono = IBM_Plex_Mono({
   weight: ["400", "500", "600", "700"],
   variable: "--font-mono",
+  subsets: ["latin"],
+});
+
+// Refined grotesque for UI/labels — softer & more native than the mono body,
+// while mono stays reserved for numeric data (weights/reps).
+const sans = Hanken_Grotesk({
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -35,7 +43,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <html lang="en" className={`${display.variable} ${mono.variable} h-full antialiased`}>
+      <html lang="en" className={`${display.variable} ${mono.variable} ${sans.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col">
           <Providers>{children}</Providers>
         </body>
