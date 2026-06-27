@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Dumbbell, History, Pill, Settings } from "lucide-react";
+import { Dumbbell, History, Apple, Settings } from "lucide-react";
 import SessionView from "@/components/superset/SessionView";
 import HistoryView from "@/components/superset/HistoryView";
-import MedsView from "@/components/superset/MedsView";
+import FoodView from "@/components/superset/FoodView";
 import SettingsView from "@/components/superset/SettingsView";
 import { AccentSync } from "@/components/superset/AccentSync";
 
 const TABS = [
   { id: "train", label: "Train", icon: Dumbbell },
   { id: "history", label: "History", icon: History },
-  { id: "meds", label: "Meds", icon: Pill },
+  { id: "food", label: "Food", icon: Apple },
   { id: "settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -39,7 +39,7 @@ export default function Home() {
       <main className="flex-1 overflow-y-auto pb-20">
         {tab === "train" && <SessionView />}
         {tab === "history" && <HistoryView />}
-        {tab === "meds" && <MedsView />}
+        {tab === "food" && <FoodView />}
         {tab === "settings" && <SettingsView />}
       </main>
 

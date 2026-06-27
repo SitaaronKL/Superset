@@ -12,6 +12,7 @@ import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as engine from "../engine.js";
+import type * as food from "../food.js";
 import type * as http from "../http.js";
 import type * as meds from "../meds.js";
 import type * as memories from "../memories.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   engine: typeof engine;
+  food: typeof food;
   http: typeof http;
   meds: typeof meds;
   memories: typeof memories;

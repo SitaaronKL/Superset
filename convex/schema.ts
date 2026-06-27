@@ -96,4 +96,14 @@ export default defineSchema({
     key: v.string(),
     value: v.string(),
   }).index("by_key", ["key"]),
+
+  // Food / consumption log. Each entry is an item with a photo (and optional
+  // second photo of the back / nutrition label), recorded for the day.
+  foodLogs: defineTable({
+    loggedAt: v.number(),
+    name: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    itemImage: v.id("_storage"),
+    backImage: v.optional(v.id("_storage")),
+  }).index("by_time", ["loggedAt"]),
 });
