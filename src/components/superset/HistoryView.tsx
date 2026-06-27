@@ -1,80 +1,122 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { Item, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from "@/components/ui/item";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+
+const FATIGUE_LABEL: Record<string, string> = { ez: "EZ", struggle: "HARD", failure: "FAIL", tooTired: "DEAD" };
+const monthKey = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+const dayLabel = (d: number) => new Date(d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
 export default function HistoryView() {
-  const exercises = useQuery(api.workouts.listExercises);
-  const excuses = useQuery(api.nudges.excuseLedger);
-  const [selected, setSelected] = useState<Id<"exercises"> | null>(null);
+  const summaries = useQuery(api.workouts.sessionSummaries);
+  const [selected, setSelected] = useState<Id<"sessions"> | null>(null);
 
-  if (!exercises) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  // Group sessions by month, preserving newest-first order.
+  const months = useMemo(() => {
+    const out: { label: string; items: NonNullable<typeof summaries> }[] = [];
+    for (const s of summaries ?? []) {
+      const label = monthKey(s.date);
+      const bucket = out.find((m) => m.label === label);
+      if (bucket) bucket.items.push(s);
+      else out.push({ label, items: [s] });
+    }
+    return out;
+  }, [summaries]);
+
+  if (summaries === undefined) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  if (selected) return <SessionDetail sessionId={selected} onBack={() => setSelected(null)} />;
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-5">
       <h2 className="display text-3xl">HISTORY</h2>
-      <div className="flex flex-wrap gap-1">
-        {exercises.map((e) => (
-          <button key={e._id} onClick={() => setSelected(selected === e._id ? null : e._id)}
-            className="border-2 border-foreground px-3 py-1.5 text-xs"
-            style={selected === e._id ? { background: "var(--accent-user)", borderColor: "var(--accent-user)", color: "white" } : undefined}>
-            {e.name}
-          </button>
-        ))}
-      </div>
-      {selected && <ExerciseHistory exerciseId={selected} />}
 
-      {excuses && excuses.length > 0 && (
-        <div className="mt-6">
-          <h3 className="display text-xl mb-2" style={{ color: "var(--accent-user)" }}>EXCUSE LEDGER</h3>
-          <div className="text-xs space-y-1">
-            {excuses.map((e) => (
-              <div key={e._id} className="flex justify-between border-b border-muted pb-1">
-                <span>{e.reason}</span>
-                <span className="text-muted-foreground">{new Date(e.date).toLocaleDateString()}</span>
-              </div>
-            ))}
+      {summaries.length === 0 ? (
+        <Empty className="mt-10">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><CalendarDays /></EmptyMedia>
+            <EmptyTitle>No sessions yet</EmptyTitle>
+            <EmptyDescription>Finish a workout and it’ll show up here, newest first.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        months.map((m) => (
+          <div key={m.label} className="flex flex-col gap-2">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground px-1">{m.label}</p>
+            <ItemGroup className="gap-2">
+              {m.items.map((s) => (
+                <Item key={s._id} variant="outline" asChild className="cursor-pointer active:bg-muted">
+                  <button onClick={() => setSelected(s._id)}>
+                    <ItemContent>
+                      <ItemTitle className="display text-base">{s.dayName.toUpperCase()}</ItemTitle>
+                      <ItemDescription>
+                        {dayLabel(s.date)} · {s.exerciseCount} exercises · {s.setCount} sets
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <ChevronRight size={16} className="text-muted-foreground" />
+                    </ItemActions>
+                  </button>
+                </Item>
+              ))}
+            </ItemGroup>
           </div>
-        </div>
+        ))
       )}
     </div>
   );
 }
 
-function ExerciseHistory({ exerciseId }: { exerciseId: Id<"exercises"> }) {
-  const history = useQuery(api.workouts.exerciseHistory, { exerciseId });
-  if (!history) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (history.length === 0) return <p className="text-sm text-muted-foreground">No sets yet.</p>;
+function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBack: () => void }) {
+  const detail = useQuery(api.workouts.sessionDetail, { sessionId });
 
-  const maxE1RM = Math.max(...history.map((h) => h.e1RM));
+  if (detail === undefined) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  if (!detail) return <p className="p-6 text-sm text-muted-foreground">Session not found.</p>;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-end gap-1 h-24 border-b-2 border-foreground pb-px">
-        {[...history].reverse().map((h) => (
-          <div key={h.sessionId} className="flex-1 min-w-1"
-            style={{ height: `${(h.e1RM / maxE1RM) * 100}%`, background: "var(--accent-user)" }}
-            title={`${h.e1RM} e1RM`} />
-        ))}
-      </div>
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">estimated 1RM per session →</p>
-      {history.map((h) => (
-        <div key={h.sessionId} className="border-2 border-foreground p-3">
-          <div className="flex justify-between text-xs mb-2">
-            <span>{new Date(h.date).toLocaleDateString()}</span>
-            <span className="display">e1RM {h.e1RM}</span>
-          </div>
-          <div className="text-xs space-y-0.5">
-            {h.sets.map((s) => (
-              <div key={s._id} className="flex justify-between tabular-nums">
-                <span className="text-muted-foreground">{s.isWarmup ? "warmup" : `set ${s.setIndex + 1}`}</span>
-                <span>{s.weight} × {s.reps} {s.fatigue ? `· ${s.fatigue}` : ""}</span>
-              </div>
-            ))}
-          </div>
+    <div className="p-4 flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={onBack} aria-label="Back">
+          <ChevronLeft />
+        </Button>
+        <div>
+          <h2 className="display text-2xl leading-none">{detail.dayName.toUpperCase()}</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{dayLabel(detail.date)}</p>
         </div>
+      </div>
+
+      {detail.groups.map((g) => (
+        <Card key={g.exerciseName} className="gap-0 py-0 overflow-hidden">
+          <CardHeader className="py-3 gap-0">
+            <CardTitle className="text-sm">{g.exerciseName}</CardTitle>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{g.muscleGroup}</p>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <div className="flex flex-col gap-1">
+              {g.sets.map((s, i) => (
+                <div key={s._id} className="flex items-center gap-3 text-sm py-1 border-t border-border first:border-t-0">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground w-12">
+                    {s.isWarmup ? "Warm" : `Set ${i + 1}`}
+                  </span>
+                  <span className="num flex-1 font-medium">{s.weight} <span className="text-muted-foreground">×</span> {s.reps}</span>
+                  {s.fatigue && (
+                    <Badge variant={s.fatigue === "failure" || s.fatigue === "tooTired" ? "destructive" : "secondary"}
+                      className="text-[10px]">
+                      {FATIGUE_LABEL[s.fatigue]}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

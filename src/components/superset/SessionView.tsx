@@ -8,11 +8,18 @@ import { rampPlan, nextSetTarget, explainNextSet, type SetRecord, type SetTarget
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
-  MessageCircle, ChevronRight, Sparkles,
+  MessageCircle, ChevronRight, ChevronLeft, Sparkles,
 } from "lucide-react";
 
 const FATIGUE = [
@@ -259,6 +266,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   const sets = useQuery(api.workouts.sessionSets, { sessionId: session._id });
   const recency = useQuery(api.workouts.exerciseRecency);
   const finish = useMutation(api.workouts.finishSession);
+  const discard = useMutation(api.workouts.discardSession);
   const addToSession = useMutation(api.workouts.addExerciseToSession);
   const setDayExercises = useMutation(api.workouts.setDayExercises);
 
@@ -297,7 +305,40 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   return (
     <div className="p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 sticky top-0 -mx-4 px-4 py-2 bg-background/90 backdrop-blur z-10">
-        <h2 className="display text-3xl truncate">{(day?.name ?? "FREESTYLE").toUpperCase()}</h2>
+        <div className="flex items-center gap-1 min-w-0">
+          {sets.length === 0 ? (
+            <button className={iconBtn} onClick={() => discard({ sessionId: session._id })} aria-label="Back">
+              <ChevronLeft size={18} />
+            </button>
+          ) : (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className={iconBtn} aria-label="Back"><ChevronLeft size={18} /></button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Leave this session?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You&apos;ve logged {sets.filter((s) => !s.isWarmup).length} set(s). Finishing keeps them in your history;
+                    discarding deletes them.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="gap-2 sm:gap-2">
+                  <AlertDialogCancel className="rounded-xl">Keep going</AlertDialogCancel>
+                  <AlertDialogAction className="rounded-xl" onClick={() => finish({ sessionId: session._id })}>
+                    Finish &amp; save
+                  </AlertDialogAction>
+                  <AlertDialogAction
+                    className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+                    onClick={() => discard({ sessionId: session._id })}>
+                    Discard
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <h2 className="display text-3xl truncate">{(day?.name ?? "FREESTYLE").toUpperCase()}</h2>
+        </div>
         <div className="flex gap-1.5">
           {day && (
             <button className={iconBtn} onClick={() => setReordering((r) => !r)} aria-label="Reorder"
@@ -356,21 +397,21 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
 function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (f: FatigueId | null) => void }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <ButtonGroup className="w-full [&>*]:flex-1">
       {FATIGUE.map((f) => {
         const on = value === f.id;
         const danger = f.id === "failure" || f.id === "tooTired";
         return (
-          <button key={f.id} onClick={() => onChange(on ? null : f.id)}
-            className="h-9 rounded-lg text-[11px] font-semibold tracking-wide transition-colors ring-1 ring-foreground/10"
-            style={on
-              ? { background: danger ? "var(--accent-user)" : "var(--foreground)", color: danger ? "#fff" : "var(--background)" }
-              : { background: "var(--muted)", color: "var(--muted-foreground)" }}>
+          <Button key={f.id} type="button" size="sm"
+            variant={on ? "default" : "outline"}
+            onClick={() => onChange(on ? null : f.id)}
+            className="text-[11px] font-semibold tracking-wide"
+            style={on && danger ? { background: "var(--accent-user)", borderColor: "var(--accent-user)", color: "#fff" } : undefined}>
             {f.label}
-          </button>
+          </Button>
         );
       })}
-    </div>
+    </ButtonGroup>
   );
 }
 
@@ -405,16 +446,23 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const workingDone = sets.filter((s) => !s.isWarmup).length;
 
   if (!isActive) {
+    const done = sets.length > 0;
     return (
-      <button onClick={onActivate} className={`p-4 text-left ${card}`} style={muted ? { opacity: 0.5 } : undefined}>
-        <div className="flex justify-between items-center">
-          <span className="font-semibold">{exercise.name}</span>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            {sets.length > 0 ? `${workingDone} sets` : muted ? "rarely done" : "tap to start"}
-            <ChevronRight size={15} className="text-muted-foreground/60" />
-          </span>
-        </div>
-      </button>
+      <Item variant="outline" asChild className="rounded-2xl cursor-pointer active:bg-muted">
+        <button onClick={onActivate}>
+          <ItemContent>
+            <ItemTitle className="text-base">{exercise.name}</ItemTitle>
+          </ItemContent>
+          <ItemActions>
+            {done ? (
+              <Badge variant="secondary" className="num">{workingDone} sets</Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">{muted ? "rarely done" : "tap to start"}</span>
+            )}
+            <ChevronRight size={16} className="text-muted-foreground" />
+          </ItemActions>
+        </button>
+      </Item>
     );
   }
 

@@ -132,6 +132,20 @@ export const finishSession = mutation({
   },
 });
 
+// Exit a session without finishing it: deletes the session and any sets logged
+// in it. Used by the "back" affordance so a started day isn't a dead end.
+export const discardSession = mutation({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const sets = await ctx.db
+      .query("sets")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const s of sets) await ctx.db.delete(s._id);
+    await ctx.db.delete(args.sessionId);
+  },
+});
+
 export const logSet = mutation({
   args: {
     sessionId: v.id("sessions"),
@@ -281,4 +295,56 @@ export const recentSessions = query({
   args: {},
   handler: async (ctx) =>
     await ctx.db.query("sessions").withIndex("by_date").order("desc").take(30),
+});
+
+// Date-first history: one row per completed session, newest first, with the day
+// name and a quick summary. The History tab lists these; tapping one opens detail.
+export const sessionSummaries = query({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db.query("sessions").withIndex("by_date").order("desc").take(200);
+    const done = sessions.filter((s) => s.status === "done");
+    return await Promise.all(
+      done.map(async (s) => {
+        const sets = await ctx.db
+          .query("sets")
+          .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+          .collect();
+        const day = s.programDayId ? await ctx.db.get(s.programDayId) : null;
+        const exerciseIds = new Set(sets.map((x) => x.exerciseId as string));
+        return {
+          _id: s._id,
+          date: s.date,
+          dayName: day?.name ?? "Freestyle",
+          exerciseCount: exerciseIds.size,
+          setCount: sets.filter((x) => !x.isWarmup).length,
+        };
+      })
+    );
+  },
+});
+
+// Full log of one session, grouped by exercise (the Obsidian-style day table).
+export const sessionDetail = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    const sets = await ctx.db
+      .query("sets")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    const day = session.programDayId ? await ctx.db.get(session.programDayId) : null;
+
+    const groups = new Map<string, { exerciseName: string; muscleGroup: string; sets: Doc<"sets">[] }>();
+    for (const s of sets.sort((a, b) => a.setIndex - b.setIndex)) {
+      const key = s.exerciseId as string;
+      if (!groups.has(key)) {
+        const ex = await ctx.db.get(s.exerciseId);
+        groups.set(key, { exerciseName: ex?.name ?? "—", muscleGroup: ex?.muscleGroup ?? "", sets: [] });
+      }
+      groups.get(key)!.sets.push(s);
+    }
+    return { date: session.date, dayName: day?.name ?? "Freestyle", groups: [...groups.values()] };
+  },
 });
