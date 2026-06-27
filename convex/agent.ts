@@ -1,10 +1,10 @@
 // The LLM harness. The model is allowed to do exactly three things:
-//   1. ingest  — parse voice/text into structured set data (confirmed by the
+//   1. ingest , parse voice/text into structured set data (confirmed by the
 //                user before saving)
-//   2. explain — phrase the deterministic engine's output like a coach
-//   3. adjust  — propose a SMALL nudge to the engine's baseline from free-form
+//   2. explain, phrase the deterministic engine's output like a coach
+//   3. adjust , propose a SMALL nudge to the engine's baseline from free-form
 //                context (e.g. "shoulder feels tweaky"). The proposal is bounded
-//                by engine.clampAdjustment (+/- 1 increment, +/- 2 reps) — the
+//                by engine.clampAdjustment (+/- 1 increment, +/- 2 reps), the
 //                engine, not the model, decides what is allowed.
 // It never chooses a medication dose, and never produces an unbounded weight or
 // rep number. Every number shown to the user originates in or is clamped by
@@ -118,7 +118,7 @@ export const coachNote = action({
           role: "system",
           content:
             `You are a terse, encouraging gym coach. Rephrase the engine's prescription in 1-2 sentences. ` +
-            `You MUST keep every number exactly as given — never change or add weights, reps, or percentages. ` +
+            `You MUST keep every number exactly as given, never change or add weights, reps, or percentages. ` +
             `Never give medication or dosing advice. ` +
             `Known facts about the user (use for tone only): ${memories.map((m) => m.fact).join("; ") || "none"}`,
         },
@@ -178,7 +178,7 @@ export const adjustTarget = action({
             `You are a gym coach adjusting the next set for the user. The engine's baseline is ` +
             `${args.baselineWeight} lb x ${args.baselineReps} reps. Based on the user's context, propose a ` +
             `weight and rep target. Stay within one weight increment (${args.weightIncrement} lb) and ~2 reps of ` +
-            `the baseline — small nudges only; the system will clamp anything larger. If the context doesn't ` +
+            `the baseline, small nudges only; the system will clamp anything larger. If the context doesn't ` +
             `warrant a change, return the baseline unchanged. Never give medication advice. ` +
             `Known facts about the user (tone only): ${memories.map((m) => m.fact).join("; ") || "none"}`,
         },

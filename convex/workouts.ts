@@ -77,7 +77,7 @@ export const reorderProgramDays = mutation({
 });
 
 // Sets the ordered exercise list for a day. Array order IS the user's preferred
-// order (favorites first) — also used by drag-to-reorder in the session view.
+// order (favorites first), also used by drag-to-reorder in the session view.
 export const setDayExercises = mutation({
   args: { id: v.id("programDays"), exerciseIds: v.array(v.id("exercises")) },
   handler: async (ctx, args) => {
@@ -393,7 +393,7 @@ export const sessionDetail = query({
       const key = s.exerciseId as string;
       if (!groups.has(key)) {
         const ex = await ctx.db.get(s.exerciseId);
-        groups.set(key, { exerciseName: ex?.name ?? "—", muscleGroup: ex?.muscleGroup ?? "", sets: [] });
+        groups.set(key, { exerciseName: ex?.name ?? "·", muscleGroup: ex?.muscleGroup ?? "", sets: [] });
       }
       groups.get(key)!.sets.push(s);
     }

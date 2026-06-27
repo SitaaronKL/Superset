@@ -42,7 +42,7 @@ export function VoiceLog({ sessionId, nextIndexFor }: {
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
-      setError("Speech recognition not supported here — type it instead.");
+      setError("Speech recognition not supported here, type it instead.");
       return;
     }
     const rec = new SR();
@@ -65,7 +65,7 @@ export function VoiceLog({ sessionId, nextIndexFor }: {
     try {
       setParsed(await ingest({ transcript }));
     } catch (e: any) {
-      setError(e.message?.includes("OPENAI_API_KEY") ? "OpenAI key not configured yet — add it in Convex env." : "Could not parse that.");
+      setError(e.message?.includes("OPENAI_API_KEY") ? "OpenAI key not configured yet, add it in Convex env." : "Could not parse that.");
     } finally {
       setBusy(false);
     }
@@ -99,9 +99,10 @@ export function VoiceLog({ sessionId, nextIndexFor }: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-2 border-foreground rounded-none gap-2">
-          <Mic size={16} /> VOICE
-        </Button>
+        <button aria-label="Voice log"
+          className="h-9 w-9 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted">
+          <Mic size={17} />
+        </button>
       </DialogTrigger>
       <DialogContent className="border-2 border-foreground rounded-none max-w-md">
         <DialogHeader>

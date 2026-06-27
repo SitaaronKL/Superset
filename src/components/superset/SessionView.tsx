@@ -16,11 +16,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
-  MessageCircle, ChevronRight, ChevronLeft, Sparkles,
+  MessageCircle, ChevronRight, ChevronLeft, GripVertical,
 } from "lucide-react";
 
 const FATIGUE = [
@@ -48,7 +56,7 @@ export default function SessionView() {
 }
 
 // ---------------------------------------------------------------------------
-// Train home — monthly dashboard + a FAB that opens the day picker
+// Train home, monthly dashboard + a FAB that opens the day picker
 // ---------------------------------------------------------------------------
 
 function monthBounds(d: Date) {
@@ -67,7 +75,7 @@ function StatTile({ label, value, delta, fmt = (n: number) => String(n) }: {
   return (
     <Card className="gap-0 py-3 px-3 items-start">
       <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <span className="num display text-2xl leading-tight">{value === undefined ? "—" : fmt(value)}</span>
+      <span className="num display text-2xl leading-tight">{value === undefined ? "·" : fmt(value)}</span>
       <span className="num text-[11px]" style={{ color: d > 0 ? "var(--accent-user)" : "var(--muted-foreground)" }}>
         {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))} vs last mo
       </span>
@@ -113,7 +121,7 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Day picker — editable templates
+// Day picker, editable templates
 // ---------------------------------------------------------------------------
 
 function DayPicker({ days, open, onOpenChange }: {
@@ -224,14 +232,14 @@ function DayEditor({ day, onClose }: { day: Doc<"programDays">; onClose: () => v
           <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
             {ids.map((id, i) => (
               <div key={id} className="flex items-center gap-1 rounded-xl bg-muted px-3 py-2">
-                <span className="flex-1 text-sm">{byId.get(id)?.name ?? "—"}</span>
+                <span className="flex-1 text-sm">{byId.get(id)?.name ?? "·"}</span>
                 <button onClick={() => move(i, i - 1)} disabled={i === 0} className="p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
                 <button onClick={() => move(i, i + 1)} disabled={i === ids.length - 1} className="p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
                 <button onClick={() => setExercises({ id: liveDay._id, exerciseIds: ids.filter((x) => x !== id) })}
                   className="p-1.5 text-muted-foreground"><X size={16} /></button>
               </div>
             ))}
-            {ids.length === 0 && <p className="text-xs text-muted-foreground py-2">No exercises yet — add some below.</p>}
+            {ids.length === 0 && <p className="text-xs text-muted-foreground py-2">No exercises yet, add some below.</p>}
           </div>
 
           <AddExerciseDialog existingIds={new Set(ids)}
@@ -285,7 +293,7 @@ function AddExerciseDialog({ existingIds, onPick, trigger }: {
                 <span className="text-[10px] text-muted-foreground uppercase">{e.muscleGroup}</span>
               </button>
             ))}
-            {available.length === 0 && <p className="text-xs text-muted-foreground py-2">No matches — quick-add below.</p>}
+            {available.length === 0 && <p className="text-xs text-muted-foreground py-2">No matches, quick-add below.</p>}
           </div>
 
           <div className="border-t border-border pt-3 flex flex-col gap-2 mb-2">
@@ -328,6 +336,11 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   const [activeExercise, setActiveExercise] = useState<Id<"exercises"> | null>(null);
   const [reordering, setReordering] = useState(false);
   const [now] = useState(() => Date.now());
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const day = days.find((d) => d._id === session.programDayId) ?? null;
 
@@ -347,15 +360,17 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   if (!exercises || !sets) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
 
-  const moveInDay = (from: number, to: number) => {
-    if (!day || to < 0 || to >= day.exerciseIds.length) return;
-    const next = [...day.exerciseIds];
-    const [m] = next.splice(from, 1);
-    next.splice(to, 0, m);
-    setDayExercises({ id: day._id, exerciseIds: next });
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!day || !over || active.id === over.id) return;
+    const ids = day.exerciseIds;
+    const oldIndex = ids.indexOf(active.id as Id<"exercises">);
+    const newIndex = ids.indexOf(over.id as Id<"exercises">);
+    if (oldIndex < 0 || newIndex < 0) return;
+    setDayExercises({ id: day._id, exerciseIds: arrayMove(ids, oldIndex, newIndex) });
   };
 
-  const iconBtn = "h-9 w-9 grid place-items-center rounded-lg ring-1 ring-foreground/15 active:bg-muted";
+  const iconBtn = "h-9 w-9 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted";
 
   return (
     <div className="p-3 flex flex-col gap-2">
@@ -408,30 +423,33 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         </div>
       </div>
 
-      {orderedIds.map((id) => {
-        const ex = byId.get(id);
-        if (!ex) return null;
-        const exSets = sets.filter((s) => s.exerciseId === id);
-        const last = recency?.[id];
-        const muted = exSets.length === 0 && (!last || now - last > RARELY_DONE_DAYS * DAY_MS);
-        const inDay = day ? day.exerciseIds.includes(id) : false;
-
-        if (reordering && inDay) {
-          const dayIdx = day!.exerciseIds.indexOf(id);
+      {reordering && day ? (
+        <>
+          <p className="text-[11px] text-muted-foreground px-1 -mb-0.5">Drag to reorder. Order saves to the day.</p>
+          <DndContext sensors={sensors} collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+            <SortableContext items={day.exerciseIds} strategy={verticalListSortingStrategy}>
+              {day.exerciseIds.map((id) => {
+                const ex = byId.get(id);
+                if (!ex) return null;
+                return <SortableExerciseRow key={id} id={id} name={ex.name} />;
+              })}
+            </SortableContext>
+          </DndContext>
+        </>
+      ) : (
+        orderedIds.map((id) => {
+          const ex = byId.get(id);
+          if (!ex) return null;
+          const exSets = sets.filter((s) => s.exerciseId === id);
+          const last = recency?.[id];
+          const muted = exSets.length === 0 && (!last || now - last > RARELY_DONE_DAYS * DAY_MS);
           return (
-            <div key={id} className={`flex items-center gap-1 px-4 py-3 ${card}`}>
-              <span className="flex-1 text-sm font-medium">{ex.name}</span>
-              <button onClick={() => moveInDay(dayIdx, dayIdx - 1)} disabled={dayIdx === 0} className="p-2 disabled:opacity-30"><ChevronUp size={18} /></button>
-              <button onClick={() => moveInDay(dayIdx, dayIdx + 1)} disabled={dayIdx === day!.exerciseIds.length - 1} className="p-2 disabled:opacity-30"><ChevronDown size={18} /></button>
-            </div>
+            <ExerciseCard key={id} exercise={ex} sessionId={session._id} sets={exSets} muted={muted}
+              isActive={activeExercise === id} onActivate={() => setActiveExercise(activeExercise === id ? null : id)} />
           );
-        }
-
-        return (
-          <ExerciseCard key={id} exercise={ex} sessionId={session._id} sets={exSets} muted={muted}
-            isActive={activeExercise === id} onActivate={() => setActiveExercise(activeExercise === id ? null : id)} />
-        );
-      })}
+        })
+      )}
 
       {!reordering && (
         <AddExerciseDialog existingIds={new Set(orderedIds)}
@@ -446,8 +464,20 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   );
 }
 
+function SortableExerciseRow({ id, name }: { id: Id<"exercises">; name: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div ref={setNodeRef} {...attributes} {...listeners}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, zIndex: isDragging ? 10 : undefined }}
+      className={`flex items-center gap-2 px-3 py-3 touch-none cursor-grab active:cursor-grabbing ${card}`}>
+      <GripVertical size={16} className="text-muted-foreground shrink-0" />
+      <span className="flex-1 text-sm font-medium truncate">{name}</span>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Exercise card — full editable table
+// Exercise card, full editable table
 // ---------------------------------------------------------------------------
 
 function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (f: FatigueId | null) => void }) {
@@ -527,7 +557,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const target = adjusted ?? baseline;
   const recReason = explainNextSet(exercise, sets as SetRecord[], plan, last.filter((s) => !s.isWarmup));
 
-  // No silent autofill — the lifter applies the coach's recommendation explicitly.
+  // No silent autofill, the lifter applies the coach's recommendation explicitly.
   const wVal = weight;
   const rVal = reps;
   const applyRec = () => { setWeight(target.weight > 0 ? String(target.weight) : ""); setReps(target.reps > 0 ? String(target.reps) : ""); };
@@ -578,7 +608,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   };
 
   return (
-    <div className="rounded-xl bg-card shadow-sm ring-2 p-3 flex flex-col gap-2" style={{ ["--tw-ring-color" as string]: "var(--accent-user)" }}>
+    <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 p-3 flex flex-col gap-2">
       <button onClick={onActivate} className="flex justify-between items-baseline text-left">
         <span className="display text-lg leading-none">{exercise.name.toUpperCase()}</span>
         <span className="text-[10px] text-muted-foreground">{exercise.repRangeMin}–{exercise.repRangeMax} reps</span>
@@ -606,10 +636,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             : <LoggedRow key={s._id} label={`SET ${i + 1}`} set={s} onTap={() => setEditingId(s._id)} />
         )}
 
-        {/* Active next-set row — coach recommendation + entry */}
+        {/* Active next-set row, coach recommendation + entry */}
         <div className="rounded-lg p-2.5 flex flex-col gap-2 mt-0.5" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>
           <div className="flex items-center gap-1.5">
-            <Sparkles size={12} style={{ color: "var(--accent-user)" }} />
             <span className="text-[10px] font-bold tracking-widest" style={{ color: "var(--accent-user)" }}>
               SUPERSET COACH
             </span>
@@ -617,7 +646,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             {adjusted && <span className="text-[10px] text-muted-foreground ml-auto">adjusted</span>}
           </div>
 
-          {/* The recommendation — explicit, tap to apply (no silent autofill) */}
+          {/* The recommendation, explicit, tap to apply (no silent autofill) */}
           {target.weight > 0 ? (
             <button onClick={applyRec}
               className="rounded-md bg-card/70 ring-1 ring-foreground/10 px-2.5 py-2 text-left active:opacity-70">
@@ -649,11 +678,11 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
           </div>
         </div>
 
-        {/* What's coming after — the ramp ahead */}
+        {/* What's coming after, the ramp ahead */}
         {futureTargets.map((t, i) => (
           <div key={`ft${i}`} className="flex items-center gap-3 px-3 py-1 text-muted-foreground/60">
             <span className="text-[10px] font-semibold tracking-wide w-11">SET {workingDone + 2 + i}</span>
-            <span className="num flex-1 text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "—"}</span>
+            <span className="num flex-1 text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "·"}</span>
             <span className="text-[10px]">planned</span>
           </div>
         ))}
@@ -664,7 +693,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>{stopNote}</p>
       )}
 
-      {/* Coach — tucked away until needed */}
+      {/* Coach, tucked away until needed */}
       {!chatOpen ? (
         <button onClick={() => setChatOpen(true)} className="self-start text-xs text-muted-foreground flex items-center gap-1.5">
           <MessageCircle size={14} /> Talk to coach

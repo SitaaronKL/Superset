@@ -85,7 +85,7 @@ export default defineSchema({
 
   memories: defineTable({
     // Long-term agent memory about the user. Shapes tone and nudges,
-    // never training numbers — those come only from the engine.
+    // never training numbers, those come only from the engine.
     fact: v.string(),
     category: v.string(), // preference | pattern | injury | motivation
     source: v.string(), // which interaction produced it

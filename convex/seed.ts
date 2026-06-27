@@ -159,7 +159,7 @@ export const run = mutation({
   args: {},
   handler: async (ctx) => {
     const existing = await ctx.db.query("exercises").collect();
-    if (existing.length > 0) return "Already seeded — use seed:reseed to replace.";
+    if (existing.length > 0) return "Already seeded, use seed:reseed to replace.";
     return await populate(ctx);
   },
 });

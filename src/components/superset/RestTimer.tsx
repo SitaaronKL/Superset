@@ -38,7 +38,7 @@ export function RestTimer({ seconds, startedAt, onDone }: {
       </span>
       <div className="flex-1">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
-          {remaining === 0 ? "GO — next set" : "Rest"}
+          {remaining === 0 ? "GO, next set" : "Rest"}
         </div>
         <div className="h-2 w-full bg-muted">
           <div className="h-2 transition-all" style={{ width: `${pct * 100}%`, background: "var(--accent-user)" }} />

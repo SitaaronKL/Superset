@@ -19,7 +19,7 @@ export default function MedsView() {
     <div className="p-4 flex flex-col gap-4">
       <h2 className="display text-3xl">MEDS</h2>
       <p className="text-xs text-muted-foreground border-l-4 border-muted pl-2">
-        Logbook only. Superset records what you and your doctor decided — it never advises doses.
+        Logbook only. Superset records what you and your doctor decided, it never advises doses.
       </p>
 
       {meds?.map((m) => <MedCard key={m._id} med={m} />)}

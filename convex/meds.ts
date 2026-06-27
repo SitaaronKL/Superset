@@ -1,5 +1,5 @@
-// Medication tracking is a logbook + reminders only. Nothing in this app —
-// engine or agent — ever suggests a dose or schedule change.
+// Medication tracking is a logbook + reminders only. Nothing in this app
+// engine or agent, ever suggests a dose or schedule change.
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 

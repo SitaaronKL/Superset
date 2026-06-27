@@ -16,7 +16,7 @@ const mono = IBM_Plex_Mono({
   subsets: ["latin"],
 });
 
-// Refined grotesque for UI/labels — softer & more native than the mono body,
+// Refined grotesque for UI/labels, softer & more native than the mono body,
 // while mono stays reserved for numeric data (weights/reps).
 const sans = Hanken_Grotesk({
   weight: ["400", "500", "600", "700"],

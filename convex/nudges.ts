@@ -105,7 +105,7 @@ export const deliver = internalAction({
     if (!email || toSend.length === 0) return;
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      console.log("RESEND_API_KEY not set — would have sent:", toSend.map((n) => n.label));
+      console.log("RESEND_API_KEY not set, would have sent:", toSend.map((n) => n.label));
       return;
     }
     for (const n of toSend) {
@@ -116,7 +116,7 @@ export const deliver = internalAction({
           from: process.env.NUDGE_FROM ?? "Superset <onboarding@resend.dev>",
           to: [email],
           subject: `Superset: ${n.label}`,
-          text: `${n.label}\n\nNo excuses today. — Superset`,
+          text: `${n.label}\n\nNo excuses today. Superset`,
         }),
       });
       if (res.ok) await ctx.runMutation(internal.nudges.markSent, { id: n._id });

@@ -1,5 +1,5 @@
 // The deterministic progressive-overload engine.
-// Pure functions only — no LLM anywhere in this file. Every weight, rep
+// Pure functions only, no LLM anywhere in this file. Every weight, rep
 // target, and stop decision the app ever shows comes from here.
 
 export type Fatigue = "ez" | "struggle" | "failure" | "tooTired";
@@ -93,7 +93,7 @@ export function prescribe(
       targetRepsMax: cfg.repRangeMax,
       warmups: [],
       workingSets: workingSetCount(cfg),
-      rationale: "No history for this exercise — pick a weight you can do for the top of the rep range with 2–3 reps in reserve.",
+      rationale: "No history for this exercise, pick a weight you can do for the top of the rep range with 2–3 reps in reserve.",
       isRebuild: false,
     };
   }
@@ -112,7 +112,7 @@ export function prescribe(
       targetRepsMax: cfg.repRangeMax,
       warmups: warmupRamp(target, cfg),
       workingSets: cfg.isCompound ? 4 : 3,
-      rationale: `Last trained ${weeks} weeks ago at ${top.weight}×${top.reps} (e1RM ${Math.round(oldMax)}). Rebuilding from ${Math.round(factor * 100)}% — don't ego-lift the first week; you'll be back fast.`,
+      rationale: `Last trained ${weeks} weeks ago at ${top.weight}×${top.reps} (e1RM ${Math.round(oldMax)}). Rebuilding from ${Math.round(factor * 100)}%, don't ego-lift the first week; you'll be back fast.`,
       isRebuild: true,
     };
   }
@@ -123,12 +123,12 @@ export function prescribe(
 
   if (top.reps >= cfg.repRangeMax && rir >= 1) {
     topWeight = top.weight + cfg.weightIncrement;
-    rationale = `You hit ${top.weight}×${top.reps} with reps in reserve — moving up to ${topWeight}.`;
+    rationale = `You hit ${top.weight}×${top.reps} with reps in reserve, moving up to ${topWeight}.`;
   } else if (top.reps >= cfg.repRangeMin) {
     rationale = `Repeat ${top.weight} and try for ${Math.min(top.reps + 1, cfg.repRangeMax)} reps.`;
   } else if (prevSessionBelowFloor) {
     topWeight = roundToIncrement(top.weight * 0.9, cfg.weightIncrement);
-    rationale = `Two sessions below ${cfg.repRangeMin} reps — deloading 10% to ${topWeight} to rebuild momentum.`;
+    rationale = `Two sessions below ${cfg.repRangeMin} reps, deloading 10% to ${topWeight} to rebuild momentum.`;
   } else {
     rationale = `Last time ${top.weight}×${top.reps} fell below the ${cfg.repRangeMin}-rep floor. Hold ${top.weight} and get back in range.`;
   }
@@ -231,12 +231,12 @@ export function nextSetTarget(
   const last = working[idx - 1];
   const rir = fatigueToRIR(last.fatigue);
 
-  // Taken to the limit last set — hold the load, don't keep climbing.
+  // Taken to the limit last set, hold the load, don't keep climbing.
   if (rir === 0) {
     return { weight: last.weight, reps: Math.max(cfg.repRangeMin, last.reps) };
   }
 
-  // Easy and met/beat the planned reps — climb a little faster than the plan.
+  // Easy and met/beat the planned reps, climb a little faster than the plan.
   if (rir >= 3 && last.reps >= (plan.workingTargets[idx - 1]?.reps ?? cfg.repRangeMax)) {
     return {
       weight: roundToIncrement(planned.weight + cfg.weightIncrement, cfg.weightIncrement),
@@ -248,7 +248,7 @@ export function nextSetTarget(
 }
 
 /**
- * A short, human reason for the next-set recommendation — so the coach card can
+ * A short, human reason for the next-set recommendation, so the coach card can
  * explain itself instead of silently pre-filling a number.
  */
 export function explainNextSet(
@@ -259,7 +259,7 @@ export function explainNextSet(
 ): string {
   const hasHistory = plan.workingTargets.some((t) => t.weight > 0);
   if (!hasHistory) {
-    return "No history yet — pick a weight you can hit for the top of the range with 2–3 reps in reserve.";
+    return "No history yet, pick a weight you can hit for the top of the range with 2–3 reps in reserve.";
   }
 
   const working = setsSoFarThisSession.filter((s) => !s.isWarmup);
@@ -268,13 +268,13 @@ export function explainNextSet(
   if (idx > 0) {
     const lastActual = working[idx - 1];
     const rir = fatigueToRIR(lastActual.fatigue);
-    if (rir === 0) return `Last set went to failure — hold ${lastActual.weight} and bank the reps.`;
-    if (rir >= 3) return `That set looked easy — bumping up ${cfg.weightIncrement} lb.`;
+    if (rir === 0) return `Last set went to failure, hold ${lastActual.weight} and bank the reps.`;
+    if (rir >= 3) return `That set looked easy, bumping up ${cfg.weightIncrement} lb.`;
   }
 
   const ref = lastSessionWorkingSets[idx];
-  if (ref) return `Last session set ${idx + 1} was ${ref.weight}×${ref.reps} — beat it.`;
-  return "You're past last session's sets — push for one more quality set.";
+  if (ref) return `Last session set ${idx + 1} was ${ref.weight}×${ref.reps}, beat it.`;
+  return "You're past last session's sets, push for one more quality set.";
 }
 
 /**
@@ -302,13 +302,13 @@ export function shouldStop(cfg: ExerciseConfig, setsSoFar: SetRecord[]): { stop:
   if (n >= 2) {
     const lastTwo = working.slice(-2);
     if (lastTwo.every((s) => s.fatigue === "tooTired")) {
-      return { stop: true, reason: "Two sets flagged too tired in a row — extra sets from here are junk fatigue. Move on." };
+      return { stop: true, reason: "Two sets flagged too tired in a row, extra sets from here are junk fatigue. Move on." };
     }
   }
   if (n >= 3) {
     const last = working[n - 1];
     if (last.reps < Math.max(2, Math.floor(cfg.repRangeMin / 2))) {
-      return { stop: true, reason: `Reps collapsed to ${last.reps} — you've gotten the stimulus. Move on.` };
+      return { stop: true, reason: `Reps collapsed to ${last.reps}, you've gotten the stimulus. Move on.` };
     }
   }
   return { stop: false };
