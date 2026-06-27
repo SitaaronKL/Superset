@@ -1,20 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Dumbbell, History, Apple, Settings } from "lucide-react";
+import { Apple } from "lucide-react";
+import { BicepsFlexedIcon } from "@/components/ui/biceps-flexed";
+import { HistoryIcon } from "@/components/ui/history";
+import { SettingsIcon } from "@/components/ui/settings";
 import SessionView from "@/components/superset/SessionView";
 import HistoryView from "@/components/superset/HistoryView";
 import FoodView from "@/components/superset/FoodView";
 import SettingsView from "@/components/superset/SettingsView";
 import { AccentSync } from "@/components/superset/AccentSync";
 
+type AnimatedIconHandle = { startAnimation: () => void; stopAnimation: () => void };
+type AnimatedIcon = React.ForwardRefExoticComponent<
+  { size?: number } & React.RefAttributes<AnimatedIconHandle>
+>;
+
+// Replays the icon's draw-on animation on a loop so the nav is always alive.
+function LoopIcon({ Comp, size, delay }: { Comp: AnimatedIcon; size: number; delay: number }) {
+  const ref = useRef<AnimatedIconHandle>(null);
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const t = setTimeout(() => {
+      ref.current?.startAnimation();
+      interval = setInterval(() => ref.current?.startAnimation(), 3200);
+    }, delay);
+    return () => { clearTimeout(t); if (interval) clearInterval(interval); };
+  }, [delay]);
+  return <Comp ref={ref} size={size} />;
+}
+
 const TABS = [
-  { id: "train", label: "Train", icon: Dumbbell },
-  { id: "history", label: "History", icon: History },
-  { id: "food", label: "Food", icon: Apple },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "train", label: "Train", icon: BicepsFlexedIcon as unknown as AnimatedIcon },
+  { id: "history", label: "History", icon: HistoryIcon as unknown as AnimatedIcon },
+  { id: "food", label: "Food", icon: null }, // no animated food icon in the set yet
+  { id: "settings", label: "Settings", icon: SettingsIcon as unknown as AnimatedIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -45,11 +67,11 @@ export default function Home() {
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md border-t border-foreground/80 bg-background pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-4">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {TABS.map(({ id, label, icon: Icon }, i) => (
             <button key={id} onClick={() => setTab(id)}
-              className="flex flex-col items-center gap-0.5 py-2 text-[9px] uppercase tracking-widest"
+              className="flex flex-col items-center gap-1 py-2 text-[9px] uppercase tracking-widest"
               style={tab === id ? { color: "var(--accent-user)" } : undefined}>
-              <Icon size={18} strokeWidth={tab === id ? 2.5 : 1.5} />
+              {Icon ? <LoopIcon Comp={Icon} size={20} delay={i * 500} /> : <Apple size={20} strokeWidth={1.6} />}
               {label}
             </button>
           ))}
