@@ -9,6 +9,7 @@ import type { Id } from "./_generated/dataModel";
 
 type SeedSet = [weight: number, reps: number, fatigue?: "ez" | "struggle" | "failure" | "tooTired", warmup?: boolean];
 
+// Set counts and rep ranges follow Naoufal's program (the Nadapt Method).
 const EXERCISES: {
   name: string;
   muscleGroup: string;
@@ -16,21 +17,22 @@ const EXERCISES: {
   rest: number;
   increment: number;
   compound: boolean;
+  sets: number; // prescribed working sets
 }[] = [
-  { name: "Bench Press", muscleGroup: "Chest", repRange: [5, 7], rest: 150, increment: 5, compound: true },
-  { name: "Machine Chest Fly", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 10, compound: false },
-  { name: "Incline Dumbell Press", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 5, compound: false },
-  { name: "Skullcrushers", muscleGroup: "Triceps", repRange: [8, 12], rest: 90, increment: 5, compound: false },
-  { name: "Tricep Pushdown", muscleGroup: "Triceps", repRange: [8, 12], rest: 75, increment: 5, compound: false },
-  { name: "Bicep Curls", muscleGroup: "Biceps", repRange: [8, 10], rest: 75, increment: 5, compound: false },
-  { name: "Hammer Curls", muscleGroup: "Biceps", repRange: [8, 10], rest: 75, increment: 5, compound: false },
-  { name: "Sitting Shoulder Press (Dumbbells)", muscleGroup: "Shoulders", repRange: [8, 12], rest: 120, increment: 5, compound: true },
-  { name: "Lateral Raises", muscleGroup: "Shoulders", repRange: [10, 12], rest: 60, increment: 5, compound: false },
-  { name: "Reverse Fly Machine", muscleGroup: "Shoulders", repRange: [8, 12], rest: 75, increment: 10, compound: false },
-  { name: "Horizontal Row Machine", muscleGroup: "Back", repRange: [8, 12], rest: 90, increment: 10, compound: false },
-  { name: "Lat Pull-Down Machine", muscleGroup: "Back", repRange: [10, 12], rest: 90, increment: 7, compound: false },
-  { name: "Squats/ Leg Press", muscleGroup: "Legs", repRange: [8, 12], rest: 150, increment: 10, compound: true },
-  { name: "Leg Extension", muscleGroup: "Legs", repRange: [6, 8], rest: 90, increment: 10, compound: false },
+  { name: "Bench Press", muscleGroup: "Chest", repRange: [6, 7], rest: 150, increment: 5, compound: true, sets: 5 },
+  { name: "Machine Chest Fly", muscleGroup: "Chest", repRange: [9, 10], rest: 90, increment: 10, compound: false, sets: 4 },
+  { name: "Incline Dumbell Press", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 5, compound: false, sets: 2 },
+  { name: "Skullcrushers", muscleGroup: "Triceps", repRange: [3, 10], rest: 90, increment: 5, compound: false, sets: 4 },
+  { name: "Tricep Pushdown", muscleGroup: "Triceps", repRange: [5, 10], rest: 75, increment: 5, compound: false, sets: 4 },
+  { name: "Bicep Curls", muscleGroup: "Biceps", repRange: [6, 8], rest: 75, increment: 5, compound: false, sets: 4 },
+  { name: "Hammer Curls", muscleGroup: "Biceps", repRange: [4, 8], rest: 75, increment: 5, compound: false, sets: 4 },
+  { name: "Sitting Shoulder Press (Dumbbells)", muscleGroup: "Shoulders", repRange: [7, 12], rest: 120, increment: 5, compound: true, sets: 4 },
+  { name: "Lateral Raises", muscleGroup: "Shoulders", repRange: [10, 12], rest: 60, increment: 5, compound: false, sets: 3 },
+  { name: "Reverse Fly Machine", muscleGroup: "Shoulders", repRange: [8, 12], rest: 75, increment: 10, compound: false, sets: 4 },
+  { name: "Horizontal Row Machine", muscleGroup: "Back", repRange: [8, 12], rest: 90, increment: 10, compound: false, sets: 4 },
+  { name: "Lat Pull-Down Machine", muscleGroup: "Back", repRange: [10, 12], rest: 90, increment: 7, compound: false, sets: 4 },
+  { name: "Squats/ Leg Press", muscleGroup: "Legs", repRange: [8, 12], rest: 150, increment: 10, compound: true, sets: 5 },
+  { name: "Leg Extension", muscleGroup: "Legs", repRange: [6, 8], rest: 90, increment: 10, compound: false, sets: 4 },
 ];
 
 const PROGRAM: [string, string[]][] = [
@@ -110,7 +112,7 @@ async function populate(ctx: MutationCtx) {
     ids.set(e.name, await ctx.db.insert("exercises", {
       name: e.name, muscleGroup: e.muscleGroup,
       repRangeMin: e.repRange[0], repRangeMax: e.repRange[1],
-      restSeconds: e.rest, weightIncrement: e.increment, isCompound: e.compound,
+      restSeconds: e.rest, weightIncrement: e.increment, isCompound: e.compound, workingSets: e.sets,
     }));
   }
 

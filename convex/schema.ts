@@ -20,6 +20,7 @@ export default defineSchema({
     restSeconds: v.number(),
     weightIncrement: v.number(),
     isCompound: v.boolean(),
+    workingSets: v.optional(v.number()), // prescribed working-set count (Naoufal/Nadapt)
     archived: v.optional(v.boolean()),
   }).index("by_name", ["name"]),
 

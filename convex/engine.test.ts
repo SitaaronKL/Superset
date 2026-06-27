@@ -4,9 +4,20 @@ import {
   nextSetTarget,
   clampAdjustment,
   explainNextSet,
+  workingSetCount,
   type ExerciseConfig,
   type SetRecord,
 } from "./engine";
+
+describe("workingSetCount", () => {
+  it("uses the prescribed count when set", () => {
+    expect(workingSetCount({ repRangeMin: 8, repRangeMax: 10, weightIncrement: 5, isCompound: false, workingSets: 2 })).toBe(2);
+  });
+  it("defaults to 5 for compounds, 4 for isolation", () => {
+    expect(workingSetCount({ repRangeMin: 5, repRangeMax: 7, weightIncrement: 5, isCompound: true })).toBe(5);
+    expect(workingSetCount({ repRangeMin: 8, repRangeMax: 12, weightIncrement: 5, isCompound: false })).toBe(4);
+  });
+});
 
 const SHOULDER: ExerciseConfig = {
   repRangeMin: 8,

@@ -16,6 +16,12 @@ export interface ExerciseConfig {
   repRangeMax: number;
   weightIncrement: number;
   isCompound: boolean;
+  workingSets?: number; // prescribed working-set count; defaults by compound-ness
+}
+
+/** Prescribed number of working sets for an exercise. */
+export function workingSetCount(cfg: ExerciseConfig): number {
+  return cfg.workingSets ?? (cfg.isCompound ? 5 : 4);
 }
 
 export interface Prescription {
@@ -86,7 +92,7 @@ export function prescribe(
       targetRepsMin: cfg.repRangeMin,
       targetRepsMax: cfg.repRangeMax,
       warmups: [],
-      workingSets: cfg.isCompound ? 5 : 4,
+      workingSets: workingSetCount(cfg),
       rationale: "No history for this exercise — pick a weight you can do for the top of the rep range with 2–3 reps in reserve.",
       isRebuild: false,
     };
@@ -132,7 +138,7 @@ export function prescribe(
     targetRepsMin: cfg.repRangeMin,
     targetRepsMax: cfg.repRangeMax,
     warmups: warmupRamp(topWeight, cfg),
-    workingSets: cfg.isCompound ? 5 : 4,
+    workingSets: workingSetCount(cfg),
     rationale,
     isRebuild: false,
   };
@@ -183,7 +189,7 @@ export function rampPlan(cfg: ExerciseConfig, lastSessionSets: SetRecord[]): Ram
   const working = lastSessionSets.filter((s) => !s.isWarmup);
 
   if (working.length === 0) {
-    const count = cfg.isCompound ? 5 : 4;
+    const count = workingSetCount(cfg);
     return {
       warmups: [],
       workingTargets: Array.from({ length: count }, () => ({ weight: 0, reps: cfg.repRangeMax })),
