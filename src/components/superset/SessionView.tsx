@@ -11,6 +11,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -42,15 +43,82 @@ export default function SessionView() {
   if (session === undefined || days === undefined) {
     return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   }
-  if (!session) return <DayPicker days={days} />;
+  if (!session) return <TrainHome days={days} />;
   return <ActiveSession session={session} days={days} />;
+}
+
+// ---------------------------------------------------------------------------
+// Train home — monthly dashboard + a FAB that opens the day picker
+// ---------------------------------------------------------------------------
+
+function monthBounds(d: Date) {
+  const start = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+  const prevStart = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+  return { start, end, prevStart, prevEnd: start };
+}
+
+const fmtVolume = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v));
+
+function StatTile({ label, value, delta, fmt = (n: number) => String(n) }: {
+  label: string; value: number | undefined; delta: number | undefined; fmt?: (n: number) => string;
+}) {
+  const d = delta ?? 0;
+  return (
+    <Card className="gap-0 py-3 px-3 items-start">
+      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="num display text-2xl leading-tight">{value === undefined ? "—" : fmt(value)}</span>
+      <span className="num text-[11px]" style={{ color: d > 0 ? "var(--accent-user)" : "var(--muted-foreground)" }}>
+        {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))} vs last mo
+      </span>
+    </Card>
+  );
+}
+
+function TrainHome({ days }: { days: Doc<"programDays">[] }) {
+  const [bounds] = useState(() => monthBounds(new Date()));
+  const [monthName] = useState(() => new Date().toLocaleDateString(undefined, { month: "long" }).toUpperCase());
+  const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
+  const lastMonth = useQuery(api.workouts.rangeStats, { start: bounds.prevStart, end: bounds.prevEnd });
+  const [pickOpen, setPickOpen] = useState(false);
+
+  const delta = (k: "workouts" | "sets" | "volume") =>
+    thisMonth && lastMonth ? thisMonth[k] - lastMonth[k] : undefined;
+
+  return (
+    <div className="p-3 flex flex-col gap-3">
+      <h2 className="display text-3xl mt-1">{monthName}</h2>
+      <div className="grid grid-cols-3 gap-2">
+        <StatTile label="Workouts" value={thisMonth?.workouts} delta={delta("workouts")} />
+        <StatTile label="Sets" value={thisMonth?.sets} delta={delta("sets")} />
+        <StatTile label="Volume" value={thisMonth?.volume} delta={delta("volume")} fmt={fmtVolume} />
+      </div>
+
+      {thisMonth && thisMonth.workouts === 0 && (
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          No workouts logged this month yet. Tap <span className="font-semibold">+</span> to start one.
+        </p>
+      )}
+
+      {/* FAB → what kind of day */}
+      <button onClick={() => setPickOpen(true)} aria-label="Start a workout"
+        className="fixed bottom-[72px] left-1/2 -translate-x-1/2 z-20 h-14 w-14 rounded-full grid place-items-center shadow-lg active:scale-95 transition-transform"
+        style={{ background: "var(--accent-user)", color: "#fff" }}>
+        <Plus size={26} />
+      </button>
+
+      <DayPicker days={days} open={pickOpen} onOpenChange={setPickOpen} />
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Day picker — editable templates
 // ---------------------------------------------------------------------------
 
-function DayPicker({ days }: { days: Doc<"programDays">[] }) {
+function DayPicker({ days, open, onOpenChange }: {
+  days: Doc<"programDays">[]; open: boolean; onOpenChange: (o: boolean) => void;
+}) {
   const start = useMutation(api.workouts.startSession);
   const createDay = useMutation(api.workouts.createProgramDay);
 
@@ -59,55 +127,61 @@ function DayPicker({ days }: { days: Doc<"programDays">[] }) {
   const [editing, setEditing] = useState<Doc<"programDays"> | null>(null);
 
   return (
-    <div className="p-3 flex flex-col gap-2">
-      <h2 className="display text-3xl mt-1 mb-1">TODAY.</h2>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-w-md mx-auto px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <DrawerHeader className="px-0 text-left">
+          <DrawerTitle className="display text-2xl">What are we training?</DrawerTitle>
+        </DrawerHeader>
 
-      {days.map((d) => (
-        <div key={d._id} className={`flex items-stretch overflow-hidden ${card}`}>
-          <button onClick={() => start({ programDayId: d._id })}
-            className="flex-1 px-4 py-3 text-left flex items-center justify-between gap-3 active:bg-muted transition-colors">
-            <span className="display text-base leading-none truncate">{d.name.toUpperCase()}</span>
-            <span className="text-[11px] text-muted-foreground shrink-0">{d.exerciseIds.length} exercises</span>
-          </button>
-          <button onClick={() => setEditing(d)} aria-label="Edit day"
-            className="px-3.5 text-muted-foreground active:bg-muted border-l border-border">
-            <Pencil size={15} />
+        <div className="flex flex-col gap-2 overflow-y-auto pb-2">
+          {days.map((d) => (
+            <div key={d._id} className={`flex items-stretch overflow-hidden ${card}`}>
+              <button onClick={() => start({ programDayId: d._id })}
+                className="flex-1 px-4 py-3 text-left flex items-center justify-between gap-3 active:bg-muted transition-colors">
+                <span className="display text-base leading-none truncate">{d.name.toUpperCase()}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0">{d.exerciseIds.length} exercises</span>
+              </button>
+              <button onClick={() => setEditing(d)} aria-label="Edit day"
+                className="px-3.5 text-muted-foreground active:bg-muted border-l border-border">
+                <Pencil size={15} />
+              </button>
+            </div>
+          ))}
+
+          {adding ? (
+            <div className={`p-3 flex flex-col gap-2 ${card}`}>
+              <Input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+                placeholder="Day name (e.g. Push, Pull, Custom Leg Day)" className="h-11" />
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-10" onClick={() => { setAdding(false); setNewName(""); }}>
+                  Cancel
+                </Button>
+                <Button className="h-10" disabled={!newName.trim()}
+                  onClick={async () => {
+                    const id = await createDay({ name: newName.trim() });
+                    setNewName(""); setAdding(false);
+                    setEditing({ _id: id, _creationTime: 0, name: newName.trim(), order: 999, exerciseIds: [] } as Doc<"programDays">);
+                  }}>
+                  Create
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)}
+              className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
+              <Plus size={15} /> New day
+            </button>
+          )}
+
+          <button onClick={() => start({})}
+            className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground active:bg-muted">
+            Freestyle session (no template)
           </button>
         </div>
-      ))}
 
-      {adding ? (
-        <div className={`p-3 flex flex-col gap-2 ${card}`}>
-          <Input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
-            placeholder="Day name (e.g. Push, Pull, Custom Leg Day)" className="h-12 rounded-xl" />
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-11 rounded-xl" onClick={() => { setAdding(false); setNewName(""); }}>
-              Cancel
-            </Button>
-            <Button className="h-11 rounded-xl" disabled={!newName.trim()}
-              onClick={async () => {
-                const id = await createDay({ name: newName.trim() });
-                setNewName(""); setAdding(false);
-                setEditing({ _id: id, _creationTime: 0, name: newName.trim(), order: 999, exerciseIds: [] } as Doc<"programDays">);
-              }}>
-              Create
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)}
-          className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
-          <Plus size={15} /> New day
-        </button>
-      )}
-
-      <button onClick={() => start({})}
-        className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground active:bg-muted">
-        Freestyle session (no template)
-      </button>
-
-      {editing && <DayEditor day={editing} onClose={() => setEditing(null)} />}
-    </div>
+        {editing && <DayEditor day={editing} onClose={() => setEditing(null)} />}
+      </DrawerContent>
+    </Drawer>
   );
 }
 
