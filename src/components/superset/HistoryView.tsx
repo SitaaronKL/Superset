@@ -35,8 +35,8 @@ export default function HistoryView() {
   if (selected) return <SessionDetail sessionId={selected} onBack={() => setSelected(null)} />;
 
   return (
-    <div className="p-4 flex flex-col gap-5">
-      <h2 className="display text-3xl">HISTORY</h2>
+    <div className="p-3 flex flex-col gap-4">
+      <h2 className="display text-2xl mt-1">HISTORY</h2>
 
       {summaries.length === 0 ? (
         <Empty className="mt-10">

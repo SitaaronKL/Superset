@@ -62,20 +62,20 @@ function DayPicker({ days }: { days: Doc<"programDays">[] }) {
   const [excuse, setExcuse] = useState("");
 
   return (
-    <div className="p-4 flex flex-col gap-3">
-      <h2 className="display text-5xl mt-3">TODAY.</h2>
-      <p className="text-sm text-muted-foreground mb-1">Pick the day. Everything&apos;s there — do what you have time for.</p>
+    <div className="p-3 flex flex-col gap-2">
+      <h2 className="display text-3xl mt-1">TODAY.</h2>
+      <p className="text-xs text-muted-foreground -mt-1 mb-0.5">Pick the day — do what you have time for.</p>
 
       {days.map((d) => (
         <div key={d._id} className={`flex items-stretch overflow-hidden ${card}`}>
           <button onClick={() => start({ programDayId: d._id })}
-            className="flex-1 p-5 text-left active:bg-muted transition-colors">
-            <div className="display text-2xl">{d.name.toUpperCase()}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{d.exerciseIds.length} exercises</div>
+            className="flex-1 px-4 py-3 text-left active:bg-muted transition-colors">
+            <div className="display text-lg leading-none">{d.name.toUpperCase()}</div>
+            <div className="text-[11px] text-muted-foreground mt-1">{d.exerciseIds.length} exercises</div>
           </button>
           <button onClick={() => setEditing(d)} aria-label="Edit day"
-            className="px-4 text-muted-foreground active:bg-muted border-l border-border">
-            <Pencil size={17} />
+            className="px-3.5 text-muted-foreground active:bg-muted border-l border-border">
+            <Pencil size={15} />
           </button>
         </div>
       ))}
@@ -100,18 +100,18 @@ function DayPicker({ days }: { days: Doc<"programDays">[] }) {
         </div>
       ) : (
         <button onClick={() => setAdding(true)}
-          className="rounded-2xl border border-dashed border-muted-foreground/40 p-4 text-left text-sm text-muted-foreground flex items-center gap-2 active:bg-muted">
-          <Plus size={16} /> New day
+          className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
+          <Plus size={15} /> New day
         </button>
       )}
 
       <button onClick={() => start({})}
-        className="rounded-2xl border border-dashed border-muted-foreground/40 p-4 text-left text-sm text-muted-foreground active:bg-muted">
+        className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground active:bg-muted">
         Freestyle session (no template)
       </button>
 
       {!excuseOpen ? (
-        <button onClick={() => setExcuseOpen(true)} className="mt-5 text-xs text-muted-foreground underline self-start">
+        <button onClick={() => setExcuseOpen(true)} className="mt-3 text-xs text-muted-foreground underline self-start">
           Not going today
         </button>
       ) : (
@@ -300,20 +300,20 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
     setDayExercises({ id: day._id, exerciseIds: next });
   };
 
-  const iconBtn = "h-10 w-10 grid place-items-center rounded-xl ring-1 ring-foreground/15 active:bg-muted";
+  const iconBtn = "h-9 w-9 grid place-items-center rounded-lg ring-1 ring-foreground/15 active:bg-muted";
 
   return (
-    <div className="p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2 sticky top-0 -mx-4 px-4 py-2 bg-background/90 backdrop-blur z-10">
+    <div className="p-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 sticky top-0 -mx-3 px-3 py-1.5 bg-background/90 backdrop-blur z-10">
         <div className="flex items-center gap-1 min-w-0">
           {sets.length === 0 ? (
             <button className={iconBtn} onClick={() => discard({ sessionId: session._id })} aria-label="Back">
-              <ChevronLeft size={18} />
+              <ChevronLeft size={17} />
             </button>
           ) : (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <button className={iconBtn} aria-label="Back"><ChevronLeft size={18} /></button>
+                <button className={iconBtn} aria-label="Back"><ChevronLeft size={17} /></button>
               </AlertDialogTrigger>
               <AlertDialogContent className="rounded-2xl">
                 <AlertDialogHeader>
@@ -337,13 +337,13 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <h2 className="display text-3xl truncate">{(day?.name ?? "FREESTYLE").toUpperCase()}</h2>
+          <h2 className="display text-2xl truncate">{(day?.name ?? "FREESTYLE").toUpperCase()}</h2>
         </div>
         <div className="flex gap-1.5">
           {day && (
             <button className={iconBtn} onClick={() => setReordering((r) => !r)} aria-label="Reorder"
               style={reordering ? { background: "var(--accent-user)", color: "#fff" } : undefined}>
-              <ArrowUpDown size={17} />
+              <ArrowUpDown size={16} />
             </button>
           )}
           <VoiceLog sessionId={session._id} nextIndexFor={(exId) => (sets ?? []).filter((s) => s.exerciseId === exId).length} />
@@ -382,8 +382,8 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         <AddExerciseDialog existingIds={new Set(orderedIds)}
           onPick={(exId) => addToSession({ sessionId: session._id, exerciseId: exId })}
           trigger={
-            <button className="rounded-2xl border border-dashed border-muted-foreground/40 p-4 text-left text-sm text-muted-foreground flex items-center gap-2 active:bg-muted">
-              <Plus size={16} /> Add an exercise
+            <button className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-2.5 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
+              <Plus size={15} /> Add an exercise
             </button>
           } />
       )}
@@ -523,14 +523,14 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   };
 
   return (
-    <div className="rounded-2xl bg-card shadow-sm ring-2 p-4 flex flex-col gap-3" style={{ ["--tw-ring-color" as string]: "var(--accent-user)" }}>
+    <div className="rounded-xl bg-card shadow-sm ring-2 p-3 flex flex-col gap-2" style={{ ["--tw-ring-color" as string]: "var(--accent-user)" }}>
       <button onClick={onActivate} className="flex justify-between items-baseline text-left">
-        <span className="display text-xl">{exercise.name.toUpperCase()}</span>
-        <span className="text-[11px] text-muted-foreground">{exercise.repRangeMin}–{exercise.repRangeMax} reps</span>
+        <span className="display text-lg leading-none">{exercise.name.toUpperCase()}</span>
+        <span className="text-[10px] text-muted-foreground">{exercise.repRangeMin}–{exercise.repRangeMax} reps</span>
       </button>
 
       {/* Table of sets */}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         {loggedWarmups.map((s) =>
           editingId === s._id
             ? <EditRow key={s._id} set={s} onSave={(p) => { updateSet({ setId: s._id, ...p }); setEditingId(null); }} onDelete={() => { deleteSet({ setId: s._id }); setEditingId(null); }} onCancel={() => setEditingId(null)} />
@@ -538,10 +538,10 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         )}
         {suggestionWarmups.map((t, i) => (
           <button key={`sw${i}`} onClick={() => logWarmupSuggestion(t)}
-            className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5 text-left text-muted-foreground">
-            <span className="text-[11px] font-semibold tracking-wide w-12">WARM</span>
-            <span className="num flex-1">{t.weight} <span className="text-muted-foreground">×</span> {t.reps}</span>
-            <span className="text-[11px]">tap to log</span>
+            className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-1.5 text-left text-muted-foreground">
+            <span className="text-[10px] font-semibold tracking-wide w-11">WARM</span>
+            <span className="num flex-1 text-sm">{t.weight} <span className="text-muted-foreground">×</span> {t.reps}</span>
+            <span className="text-[10px]">tap to log</span>
           </button>
         ))}
 
@@ -552,49 +552,43 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         )}
 
         {/* Active next-set row — coach recommendation + entry */}
-        <div className="rounded-xl p-3 flex flex-col gap-2.5" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>
+        <div className="rounded-lg p-2.5 flex flex-col gap-2 mt-0.5" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>
           <div className="flex items-center gap-1.5">
-            <Sparkles size={13} style={{ color: "var(--accent-user)" }} />
-            <span className="text-[11px] font-bold tracking-widest" style={{ color: "var(--accent-user)" }}>
+            <Sparkles size={12} style={{ color: "var(--accent-user)" }} />
+            <span className="text-[10px] font-bold tracking-widest" style={{ color: "var(--accent-user)" }}>
               SUPERSET COACH
             </span>
-            <span className="text-[11px] text-muted-foreground">· set {workingDone + 1}</span>
-            {adjusted && <span className="text-[10px] text-muted-foreground ml-auto">adjusted from your note</span>}
+            <span className="text-[10px] text-muted-foreground">· set {workingDone + 1}</span>
+            {adjusted && <span className="text-[10px] text-muted-foreground ml-auto">adjusted</span>}
           </div>
 
           {/* The recommendation — explicit, tap to apply (no silent autofill) */}
           {target.weight > 0 ? (
             <button onClick={applyRec}
-              className="rounded-lg bg-card/70 ring-1 ring-foreground/10 px-3 py-2.5 text-left active:opacity-70">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">recommends</span>
-                <span className="text-[10px] text-muted-foreground">tap to use →</span>
+              className="rounded-md bg-card/70 ring-1 ring-foreground/10 px-2.5 py-2 text-left active:opacity-70">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">rec</span>
+                <span className="num text-lg font-semibold">{target.weight} <span className="text-sm text-muted-foreground">× {target.reps}</span></span>
+                <span className="text-[10px] text-muted-foreground ml-auto">tap to use →</span>
               </div>
-              <div className="num text-2xl font-semibold mt-0.5">{target.weight} <span className="text-base text-muted-foreground">× {target.reps}</span></div>
-              <p className="text-xs text-muted-foreground mt-1 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
             </button>
           ) : (
-            <p className="text-xs text-muted-foreground px-1">{recReason}</p>
+            <p className="text-[11px] text-muted-foreground px-1">{recReason}</p>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-0.5">
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">weight</span>
-              <Input inputMode="decimal" value={wVal} placeholder={target.weight > 0 ? String(target.weight) : "—"}
-                onChange={(e) => setWeight(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">reps</span>
-              <Input inputMode="numeric" value={rVal} placeholder={target.reps > 0 ? String(target.reps) : "—"}
-                onChange={(e) => setReps(e.target.value)} className="num h-14 rounded-xl text-2xl text-center" />
-            </label>
+          <div className="grid grid-cols-2 gap-2">
+            <Input inputMode="decimal" value={wVal} placeholder={target.weight > 0 ? `${target.weight} lb` : "weight"}
+              onChange={(e) => setWeight(e.target.value)} className="num h-11 rounded-lg text-lg text-center" />
+            <Input inputMode="numeric" value={rVal} placeholder={target.reps > 0 ? `${target.reps} reps` : "reps"}
+              onChange={(e) => setReps(e.target.value)} className="num h-11 rounded-lg text-lg text-center" />
           </div>
           <EffortPills value={fatigue} onChange={setFatigue} />
           <div className="flex gap-2">
-            <Button onClick={() => submit(false)} disabled={!wVal || !rVal} className="flex-1 h-12 rounded-xl text-base font-semibold">
+            <Button onClick={() => submit(false)} disabled={!wVal || !rVal} className="flex-1 h-10 rounded-lg text-sm font-semibold">
               Log set {workingDone + 1}
             </Button>
-            <Button variant="outline" onClick={() => submit(true)} disabled={!wVal || !rVal} className="h-12 rounded-xl px-4" title="Log as warmup">
+            <Button variant="outline" onClick={() => submit(true)} disabled={!wVal || !rVal} className="h-10 rounded-lg px-3 text-sm" title="Log as warmup">
               Warm
             </Button>
           </div>
@@ -602,9 +596,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 
         {/* What's coming after — the ramp ahead */}
         {futureTargets.map((t, i) => (
-          <div key={`ft${i}`} className="flex items-center gap-3 px-3 py-2 text-muted-foreground/60">
-            <span className="text-[11px] font-semibold tracking-wide w-12">SET {workingDone + 2 + i}</span>
-            <span className="num flex-1">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "—"}</span>
+          <div key={`ft${i}`} className="flex items-center gap-3 px-3 py-1 text-muted-foreground/60">
+            <span className="text-[10px] font-semibold tracking-wide w-11">SET {workingDone + 2 + i}</span>
+            <span className="num flex-1 text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "—"}</span>
             <span className="text-[10px]">planned</span>
           </div>
         ))}
@@ -638,9 +632,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 
 function LoggedRow({ label, set, onTap }: { label: string; set: Doc<"sets">; onTap: () => void }) {
   return (
-    <button onClick={onTap} className="flex items-center gap-3 rounded-xl bg-muted px-3 py-2.5 text-left active:opacity-70">
-      <span className="text-[11px] font-semibold tracking-wide w-12 text-muted-foreground">{label}</span>
-      <span className="num flex-1 font-medium">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
+    <button onClick={onTap} className="flex items-center gap-3 rounded-lg bg-muted px-3 py-1.5 text-left active:opacity-70">
+      <span className="text-[10px] font-semibold tracking-wide w-11 text-muted-foreground">{label}</span>
+      <span className="num flex-1 font-medium text-sm">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
       {set.fatigue && (
         <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md"
           style={set.fatigue === "failure" || set.fatigue === "tooTired"
