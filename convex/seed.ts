@@ -19,24 +19,24 @@ const EXERCISES: {
 }[] = [
   { name: "Bench Press", muscleGroup: "Chest", repRange: [5, 7], rest: 150, increment: 5, compound: true },
   { name: "Machine Chest Fly", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 10, compound: false },
-  { name: "Incline Dumbbell Press", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 5, compound: false },
+  { name: "Incline Dumbell Press", muscleGroup: "Chest", repRange: [8, 10], rest: 90, increment: 5, compound: false },
   { name: "Skullcrushers", muscleGroup: "Triceps", repRange: [8, 12], rest: 90, increment: 5, compound: false },
   { name: "Tricep Pushdown", muscleGroup: "Triceps", repRange: [8, 12], rest: 75, increment: 5, compound: false },
   { name: "Bicep Curls", muscleGroup: "Biceps", repRange: [8, 10], rest: 75, increment: 5, compound: false },
   { name: "Hammer Curls", muscleGroup: "Biceps", repRange: [8, 10], rest: 75, increment: 5, compound: false },
-  { name: "Seated Shoulder Press (DB)", muscleGroup: "Shoulders", repRange: [8, 12], rest: 120, increment: 5, compound: true },
+  { name: "Sitting Shoulder Press (Dumbbells)", muscleGroup: "Shoulders", repRange: [8, 12], rest: 120, increment: 5, compound: true },
   { name: "Lateral Raises", muscleGroup: "Shoulders", repRange: [10, 12], rest: 60, increment: 5, compound: false },
   { name: "Reverse Fly Machine", muscleGroup: "Shoulders", repRange: [8, 12], rest: 75, increment: 10, compound: false },
   { name: "Horizontal Row Machine", muscleGroup: "Back", repRange: [8, 12], rest: 90, increment: 10, compound: false },
-  { name: "Lat Pulldown", muscleGroup: "Back", repRange: [10, 12], rest: 90, increment: 7, compound: false },
-  { name: "Leg Press", muscleGroup: "Legs", repRange: [8, 12], rest: 150, increment: 10, compound: true },
+  { name: "Lat Pull-Down Machine", muscleGroup: "Back", repRange: [10, 12], rest: 90, increment: 7, compound: false },
+  { name: "Squats/ Leg Press", muscleGroup: "Legs", repRange: [8, 12], rest: 150, increment: 10, compound: true },
   { name: "Leg Extension", muscleGroup: "Legs", repRange: [6, 8], rest: 90, increment: 10, compound: false },
 ];
 
 const PROGRAM: [string, string[]][] = [
-  ["Chest & Arms", ["Bench Press", "Machine Chest Fly", "Incline Dumbbell Press", "Skullcrushers", "Tricep Pushdown", "Bicep Curls", "Hammer Curls"]],
-  ["Shoulders & Back", ["Seated Shoulder Press (DB)", "Lateral Raises", "Reverse Fly Machine", "Horizontal Row Machine", "Lat Pulldown"]],
-  ["Legs", ["Leg Press", "Leg Extension"]],
+  ["Day 1: Chest & Arms", ["Bench Press", "Machine Chest Fly", "Incline Dumbell Press", "Skullcrushers", "Tricep Pushdown", "Bicep Curls", "Hammer Curls"]],
+  ["Day 3: Shoulders & Back", ["Sitting Shoulder Press (Dumbbells)", "Lateral Raises", "Reverse Fly Machine", "Horizontal Row Machine", "Lat Pull-Down Machine"]],
+  ["Day 4: Legs", ["Squats/ Leg Press", "Leg Extension"]],
 ];
 
 // Each real session from the Obsidian logs, oldest → newest, with its calendar
@@ -46,11 +46,11 @@ const SESSIONS: { date: [number, number, number]; day: string; entries: [string,
   {
     // Day 1 numbers from the Naoufal template (representative chest/arms session).
     date: [2025, 8, 5],
-    day: "Chest & Arms",
+    day: "Day 1: Chest & Arms",
     entries: [
       ["Bench Press", [[45, 12, undefined, true], [90, 10, undefined, true], [135, 6], [145, 6], [150, 4, "struggle"], [160, 3, "failure"], [136, 6, "struggle"]]],
       ["Machine Chest Fly", [[90, 10], [110, 10], [120, 8, "struggle"], [130, 5, "failure"]]],
-      ["Incline Dumbbell Press", [[35, 8], [35, 5, "failure"]]],
+      ["Incline Dumbell Press", [[35, 8], [35, 5, "failure"]]],
       ["Skullcrushers", [[30, 12], [40, 10], [50, 8, "struggle"], [60, 7, "failure"]]],
       ["Tricep Pushdown", [[33, 12], [44, 10], [44, 8, "struggle"]]],
       ["Bicep Curls", [[25, 10], [30, 6, "struggle"], [35, 4, "failure"], [30, 6]]],
@@ -59,41 +59,41 @@ const SESSIONS: { date: [number, number, number]; day: string; entries: [string,
   },
   {
     date: [2025, 8, 7],
-    day: "Shoulders & Back",
+    day: "Day 3: Shoulders & Back",
     entries: [
-      ["Seated Shoulder Press (DB)", [[20, 12, "ez", true], [25, 12, "ez"], [35, 12, "struggle"], [45, 8, "failure"], [45, 4, "failure"]]],
+      ["Sitting Shoulder Press (Dumbbells)", [[20, 12, "ez", true], [25, 12, "ez"], [35, 12, "struggle"], [45, 8, "failure"], [45, 4, "failure"]]],
       ["Lateral Raises", [[20, 10, "struggle"], [25, 10, "struggle"], [30, 7, "failure"]]],
       ["Reverse Fly Machine", [[70, 7, "struggle"], [70, 6, "struggle"], [80, 3, "failure"], [60, 10, "tooTired"]]],
       ["Horizontal Row Machine", [[88, 12, "struggle"], [99, 11, "failure"], [104, 10, "struggle"], [110, 7, "failure"]]],
-      ["Lat Pulldown", [[104, 12, "ez"], [110, 12, "ez"], [115, 10, "failure"], [121, 8, "failure"]]],
+      ["Lat Pull-Down Machine", [[104, 12, "ez"], [110, 12, "ez"], [115, 10, "failure"], [121, 8, "failure"]]],
     ],
   },
   {
     date: [2025, 8, 8],
-    day: "Legs",
+    day: "Day 4: Legs",
     entries: [
-      ["Leg Press", [[200, 12], [240, 12], [280, 8, "struggle"], [280, 6, "struggle"], [300, 3, "failure"]]],
+      ["Squats/ Leg Press", [[200, 12], [240, 12], [280, 8, "struggle"], [280, 6, "struggle"], [300, 3, "failure"]]],
       ["Leg Extension", [[125, 12], [165, 12], [185, 12, "struggle"], [205, 8, "failure"]]],
     ],
   },
   {
     date: [2025, 8, 18],
-    day: "Shoulders & Back",
+    day: "Day 3: Shoulders & Back",
     entries: [
-      ["Seated Shoulder Press (DB)", [[25, 12, "ez", true], [30, 12, "ez"], [35, 12, "struggle"], [40, 8, "failure"], [45, 5, "failure"]]],
+      ["Sitting Shoulder Press (Dumbbells)", [[25, 12, "ez", true], [30, 12, "ez"], [35, 12, "struggle"], [40, 8, "failure"], [45, 5, "failure"]]],
       ["Lateral Raises", [[20, 10, "struggle"], [25, 12, "ez"], [30, 14, "failure"]]],
       ["Reverse Fly Machine", [[60, 10, "failure"], [70, 6, "failure"], [70, 5, "failure"], [70, 3, "failure"]]],
       ["Horizontal Row Machine", [[88, 12, "struggle"], [99, 12, "struggle"], [104, 6, "failure"], [110, 2, "failure"]]],
-      ["Lat Pulldown", [[104, 12, "ez"], [115, 12, "struggle"], [121, 10, "struggle"], [126, 10, "failure"]]],
+      ["Lat Pull-Down Machine", [[104, 12, "ez"], [115, 12, "struggle"], [121, 10, "struggle"], [126, 10, "failure"]]],
     ],
   },
   {
     date: [2025, 9, 8],
-    day: "Shoulders & Back",
+    day: "Day 3: Shoulders & Back",
     entries: [
-      ["Seated Shoulder Press (DB)", [[25, 12, "ez", true], [35, 12, "struggle"], [40, 12, "struggle"], [45, 7, "failure"], [30, 8, "failure"]]],
+      ["Sitting Shoulder Press (Dumbbells)", [[25, 12, "ez", true], [35, 12, "struggle"], [40, 12, "struggle"], [45, 7, "failure"], [30, 8, "failure"]]],
       ["Lateral Raises", [[25, 12], [30, 12], [35, 12]]],
-      ["Lat Pulldown", [[104, 12]]],
+      ["Lat Pull-Down Machine", [[104, 12]]],
     ],
   },
 ];
@@ -101,7 +101,7 @@ const SESSIONS: { date: [number, number, number]; day: string; entries: [string,
 const DEFAULT_NUDGES: [string, string, number][] = [
   ["freezeBottle", "Put a water bottle in the freezer now.", 600],
   ["chargePhone", "Plug your phone in so it's at 100% by gym time.", 240],
-  ["planPreview", "Here's today's plan — leave soon.", 45],
+  ["planPreview", "Here's today's plan. Leave soon.", 45],
 ];
 
 async function populate(ctx: MutationCtx) {
@@ -115,14 +115,18 @@ async function populate(ctx: MutationCtx) {
   }
 
   let order = 0;
+  const dayIds = new Map<string, Id<"programDays">>();
   for (const [name, exNames] of PROGRAM) {
-    await ctx.db.insert("programDays", { name, order: order++, exerciseIds: exNames.map((n) => ids.get(n)!) });
+    const dayId = await ctx.db.insert("programDays", { name, order: order++, exerciseIds: exNames.map((n) => ids.get(n)!) });
+    dayIds.set(name, dayId);
   }
 
   let sets = 0;
   for (const s of SESSIONS) {
     const date = Date.UTC(s.date[0], s.date[1] - 1, s.date[2], 18, 0, 0);
-    const sessionId = await ctx.db.insert("sessions", { date, status: "done", notes: "Imported from Obsidian logs" });
+    const sessionId = await ctx.db.insert("sessions", {
+      programDayId: dayIds.get(s.day), date, status: "done", notes: "Imported from Obsidian logs",
+    });
     let i = 0;
     for (const [exName, exSets] of s.entries) {
       const exerciseId = ids.get(exName)!;

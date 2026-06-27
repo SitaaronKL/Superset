@@ -131,7 +131,7 @@
 /* ---- Superset theme: pure black & white + one user-chosen accent ---- */
 /* The accent is set at runtime from settings (see AccentProvider). */
 :root {
-  --radius: 0.875rem; /* softened toward iOS-native rounding */
+  --radius: 1.35rem; /* Apple-style large corner radius */
   --background: oklch(1 0 0);
   --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);

@@ -21,7 +21,8 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function Home() {
   const [tab, setTab] = useState<TabId>("train");
-  const streak = useQuery(api.nudges.streak);
+  const [todayStart] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); });
+  const dayStreak = useQuery(api.workouts.dayStreak, { todayStart });
 
   return (
     <div className="flex min-h-dvh flex-col max-w-md mx-auto w-full">
@@ -31,7 +32,7 @@ export default function Home() {
           SUPER<span style={{ color: "var(--accent-user)" }}>SET</span>
         </h1>
         <div className="text-right text-[11px] text-muted-foreground">
-          <span className="display text-base text-foreground">{streak?.weeks ?? 0}</span> wk streak
+          <span className="display text-base text-foreground">{dayStreak ?? 0}</span> day stk
         </div>
       </header>
 

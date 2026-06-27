@@ -297,6 +297,58 @@ export const recentSessions = query({
     await ctx.db.query("sessions").withIndex("by_date").order("desc").take(30),
 });
 
+// Consecutive-day training streak ending today or yesterday. The client passes
+// the local start-of-today so day boundaries match the user's timezone.
+export const dayStreak = query({
+  args: { todayStart: v.number() },
+  handler: async (ctx, { todayStart }) => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const sessions = (
+      await ctx.db.query("sessions").withIndex("by_date").order("desc").take(200)
+    ).filter((s) => s.status === "done");
+    const trained = new Set(sessions.map((s) => Math.floor((s.date - todayStart) / DAY)));
+    // dayOffset 0 = today, -1 = yesterday, ...
+    let streak = 0;
+    let cursor = trained.has(0) ? 0 : trained.has(-1) ? -1 : null;
+    if (cursor === null) return 0;
+    while (trained.has(cursor)) {
+      streak++;
+      cursor--;
+    }
+    return streak;
+  },
+});
+
+// Aggregate stats for a date range [start, end). Powers the Train dashboard's
+// monthly metrics (workouts / working sets / total volume). The client passes
+// calendar-month boundaries so the query stays deterministic.
+export const rangeStats = query({
+  args: { start: v.number(), end: v.number() },
+  handler: async (ctx, { start, end }) => {
+    const sessions = (
+      await ctx.db
+        .query("sessions")
+        .withIndex("by_date", (q) => q.gte("date", start).lt("date", end))
+        .collect()
+    ).filter((s) => s.status === "done");
+    let sets = 0;
+    let volume = 0;
+    for (const s of sessions) {
+      const ss = await ctx.db
+        .query("sets")
+        .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+        .collect();
+      for (const x of ss) {
+        if (!x.isWarmup) {
+          sets++;
+          volume += x.weight * x.reps;
+        }
+      }
+    }
+    return { workouts: sessions.length, sets, volume };
+  },
+});
+
 // Date-first history: one row per completed session, newest first, with the day
 // name and a quick summary. The History tab lists these; tapping one opens detail.
 export const sessionSummaries = query({

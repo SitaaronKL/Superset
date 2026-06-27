@@ -53,25 +53,21 @@ export default function SessionView() {
 function DayPicker({ days }: { days: Doc<"programDays">[] }) {
   const start = useMutation(api.workouts.startSession);
   const createDay = useMutation(api.workouts.createProgramDay);
-  const logExcuse = useMutation(api.nudges.logExcuse);
 
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Doc<"programDays"> | null>(null);
-  const [excuseOpen, setExcuseOpen] = useState(false);
-  const [excuse, setExcuse] = useState("");
 
   return (
     <div className="p-3 flex flex-col gap-2">
-      <h2 className="display text-3xl mt-1">TODAY.</h2>
-      <p className="text-xs text-muted-foreground -mt-1 mb-0.5">Pick the day — do what you have time for.</p>
+      <h2 className="display text-3xl mt-1 mb-1">TODAY.</h2>
 
       {days.map((d) => (
         <div key={d._id} className={`flex items-stretch overflow-hidden ${card}`}>
           <button onClick={() => start({ programDayId: d._id })}
-            className="flex-1 px-4 py-3 text-left active:bg-muted transition-colors">
-            <div className="display text-lg leading-none">{d.name.toUpperCase()}</div>
-            <div className="text-[11px] text-muted-foreground mt-1">{d.exerciseIds.length} exercises</div>
+            className="flex-1 px-4 py-3 text-left flex items-center justify-between gap-3 active:bg-muted transition-colors">
+            <span className="display text-base leading-none truncate">{d.name.toUpperCase()}</span>
+            <span className="text-[11px] text-muted-foreground shrink-0">{d.exerciseIds.length} exercises</span>
           </button>
           <button onClick={() => setEditing(d)} aria-label="Edit day"
             className="px-3.5 text-muted-foreground active:bg-muted border-l border-border">
@@ -109,21 +105,6 @@ function DayPicker({ days }: { days: Doc<"programDays">[] }) {
         className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground active:bg-muted">
         Freestyle session (no template)
       </button>
-
-      {!excuseOpen ? (
-        <button onClick={() => setExcuseOpen(true)} className="mt-3 text-xs text-muted-foreground underline self-start">
-          Not going today
-        </button>
-      ) : (
-        <div className="rounded-2xl p-3 flex flex-col gap-2 ring-1" style={{ ["--tw-ring-color" as string]: "var(--accent-user)" }}>
-          <p className="text-xs uppercase tracking-widest">What&apos;s the excuse? It goes in the ledger.</p>
-          <Input value={excuse} onChange={(e) => setExcuse(e.target.value)} placeholder="be honest" className="h-12 rounded-xl" />
-          <Button className="h-11 rounded-xl" disabled={!excuse}
-            onClick={async () => { await logExcuse({ reason: excuse }); setExcuse(""); setExcuseOpen(false); }}>
-            Log it
-          </Button>
-        </div>
-      )}
 
       {editing && <DayEditor day={editing} onClose={() => setEditing(null)} />}
     </div>
