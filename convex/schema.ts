@@ -113,5 +113,9 @@ export default defineSchema({
     notes: v.optional(v.string()),
     itemImage: v.id("_storage"),
     backImage: v.optional(v.id("_storage")),
+    // Filled by GPT-5.5 vision from the photos.
+    calories: v.optional(v.number()),
+    protein: v.optional(v.number()),
+    summary: v.optional(v.string()),
   }).index("by_time", ["loggedAt"]),
 });

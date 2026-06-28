@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,16 @@ export default function FoodView() {
       ) : (
         days.map((day) => (
           <div key={day.label} className="flex flex-col gap-2">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground px-1">{day.label}</p>
+            <div className="flex items-center justify-between px-1">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{day.label}</p>
+              {(() => {
+                const cal = day.items.reduce((s, l) => s + (l.calories ?? 0), 0);
+                const pro = day.items.reduce((s, l) => s + (l.protein ?? 0), 0);
+                return cal > 0 || pro > 0 ? (
+                  <p className="num text-[11px] text-muted-foreground">{cal} cal · {pro}g protein</p>
+                ) : null;
+              })()}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {day.items.map((l) => (
                 <Card key={l._id} className="gap-0 p-0 overflow-hidden relative">
@@ -70,6 +79,9 @@ export default function FoodView() {
                       <span className="text-sm font-medium truncate">{l.name || "Logged"}</span>
                       {l.backUrl && <Badge variant="secondary" className="text-[9px] shrink-0">label</Badge>}
                     </div>
+                    {(l.calories || l.protein) ? (
+                      <span className="num text-[10px] text-muted-foreground">{l.calories ?? 0} cal · {l.protein ?? 0}g</span>
+                    ) : null}
                     <span className="num text-[10px] text-muted-foreground">{timeLabel(l.loggedAt)}</span>
                   </div>
                   <button onClick={() => del({ id: l._id })} aria-label="Delete"
@@ -115,12 +127,14 @@ function PhotoPicker({ label, file, onPick }: { label: string; file: File | null
 
 function AddFoodDrawer() {
   const generateUploadUrl = useMutation(api.food.generateUploadUrl);
+  const analyze = useAction(api.food.analyze);
   const addFoodLog = useMutation(api.food.addFoodLog);
   const [open, setOpen] = useState(false);
   const [itemFile, setItemFile] = useState<File | null>(null);
   const [backFile, setBackFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string>("");
 
   const upload = async (file: File): Promise<Id<"_storage">> => {
     const url = await generateUploadUrl();
@@ -133,12 +147,21 @@ function AddFoodDrawer() {
     if (!itemFile) return;
     setBusy(true);
     try {
+      setStage("Uploading…");
       const itemImage = await upload(itemFile);
       const backImage = backFile ? await upload(backFile) : undefined;
-      await addFoodLog({ itemImage, backImage, name: name.trim() || undefined });
+      setStage("Reading the photo…");
+      const a = await analyze({ itemImage, backImage });
+      await addFoodLog({
+        itemImage, backImage,
+        name: name.trim() || a.name || undefined,
+        calories: a.calories || undefined,
+        protein: a.protein || undefined,
+        summary: a.summary || undefined,
+      });
       setItemFile(null); setBackFile(null); setName(""); setOpen(false);
     } finally {
-      setBusy(false);
+      setBusy(false); setStage("");
     }
   };
 
@@ -155,10 +178,11 @@ function AddFoodDrawer() {
             <PhotoPicker label="Item" file={itemFile} onPick={setItemFile} />
             <PhotoPicker label="Back / label (optional)" file={backFile} onPick={setBackFile} />
           </div>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className="h-11" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional, AI fills it in)" className="h-11" />
           <Button className="h-11" disabled={!itemFile || busy} onClick={submit}>
-            {busy ? "Saving…" : "Save to today"}
+            {busy ? (stage || "Saving…") : "Save to today"}
           </Button>
+          <p className="text-[11px] text-muted-foreground text-center -mt-1">The coach reads your photos to name it and pull calories + protein.</p>
         </div>
       </DrawerContent>
     </Drawer>
