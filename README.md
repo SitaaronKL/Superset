@@ -4,41 +4,73 @@
 
 An open-source, forkable, mobile-first health OS for people who want to improve
 their health with the help of agents. Self-host it, bring your own backend and
-your own LLM key, and make it yours. Today it's a gym + health PWA; the goal is
-an all-in-one, agent-driven system for training, recovery, and health habits.
+your own LLM key, and make it yours. It's a training + nutrition + coaching PWA;
+the goal is an all-in-one, agent-driven system for getting and staying in shape.
+
+Live: https://superset-lime.vercel.app (the author's instance — fork your own).
 
 ## The core principle: engine-bounded coaching
 
 **The LLM never produces an unbounded number.** Every weight, rep target,
 deload, and stop decision is grounded in a deterministic TypeScript engine
-([`convex/engine.ts`](convex/engine.ts)) you can read and test. The model is
-only allowed to:
+([`convex/engine.ts`](convex/engine.ts), unit-tested in `engine.test.ts`). The
+models are only allowed to:
 
-1. **Ingest** — parse voice/text ("skullcrushers 50 for 8, brutal") into
-   structured sets, read back for confirmation before saving.
+1. **Ingest** — parse voice/text into structured sets.
 2. **Explain** — phrase the engine's recommendation like a coach.
-3. **Adjust (bounded)** — propose a *small* nudge from free-form context
-   ("shoulder feels tweaky") that the engine clamps to ±1 weight increment /
-   ±2 reps via `clampAdjustment`. The engine, not the model, decides what's allowed.
+3. **Adjust (bounded)** — propose a small nudge from free-form context ("shoulder
+   feels tweaky"), clamped by `clampAdjustment` to ±1 weight increment / ±2 reps.
+4. **Converse / see** — the Coach chat and Food vision read your data and photos,
+   but defer exact lifting numbers to the engine.
 
 Recommendations are shown explicitly, attributed to the coach, and applied only
-when you confirm them — never silently auto-filled. Medication tracking is a
-logbook + reminders only; the app never advises dosing.
+when you confirm them — never silently auto-filled.
 
-## Features
+## The app (5 tabs)
 
-- **Flexible training days** — create/rename/reorder your own day templates; pick a day and see every exercise in your priority order, do what you have time for (the rest just stay unlogged).
-- **Ramping progressive-overload engine** — Naoufal-style ("Nadapt") ramping sets, double progression, fatigue tags (`EZ / HARD / FAIL / DEAD`) mapped to reps-in-reserve, layoff deloads, warmup carry-over, per-set targets that adapt to live performance.
-- **Guided per-set logging** — a full set table with an attributed coach recommendation for the next set; tap to apply, edit any logged set, or log via the chat box. Auto-starting rest timers.
-- **Voice + chat logging** via Web Speech API + LLM parsing (confirm before save).
-- **Excuse-killer nudges** — scheduled emails (Resend) timed backward from your gym time ("freeze the water bottle", "charge your phone"), an excuse ledger, and weekly streaks.
-- **Coach memory** — the agent accumulates durable facts about you (injuries, patterns, preferences) that shape its tone and nudges — never the numbers. Inspect and delete them in Settings.
-- **e1RM history charts** per exercise.
-- **Native-feeling black & white UI** (bottom-sheet drawers, mono numerals) with a user-choosable accent color.
+- **Train** — a monthly dashboard (workouts / sets / volume with month-over-month
+  deltas). A `+` opens a "what are we training?" sheet of editable day templates.
+  Inside a session: a full set table per exercise with the coach's per-set
+  recommendation (ramping "Nadapt" plan from your history), warmups carried over,
+  editable sets, a per-set text/voice note that nudges the rec, drag-to-reorder,
+  and a back action that discards or finishes.
+- **History** — date-first: sessions grouped by month, tap a day for its full
+  set table.
+- **Coach** (center) — an agentic chat that knows your program (the full Naoufal
+  guide is built into its context), training history, and saved facts. Text +
+  voice. Helps you lock in routines.
+- **Food** — snap the item (and optional nutrition label); GPT-5.5 vision names
+  it and pulls calories + protein. Logs per day with daily totals.
+- **Settings** — accent color (swatch + popover), Light/Dark, customizable
+  reminders (in hours), gym schedule, coach memories, sign out.
 
 ## Stack
 
-Next.js (App Router) · Convex (DB, scheduled functions, auth) · Convex Auth (password) · shadcn/ui + vaul + Tailwind v4 · OpenAI GPT-5.5 (ingest / explain / bounded adjust only)
+Next.js 16 (App Router, Turbopack) · Convex (DB, file storage, scheduled
+functions, auth) · Convex Auth (password) · OpenAI **GPT-5.5** (ingest / explain
+/ bounded adjust / chat / food vision). UI: shadcn/ui + vaul (bottom sheets) +
+dnd-kit (drag) + Tailwind v4 + lucide-animated icons.
+
+## Design language
+
+- **Apple-style pills**: large corner radius, `rounded-full` buttons and inputs.
+- **shadcn/ui throughout** (Item, Card, Drawer, ButtonGroup, Empty, AlertDialog,
+  Popover). Modals are bottom-sheet drawers.
+- **Type**: Anton (display), Hanken Grotesk (UI), IBM Plex Mono for numbers
+  (`.num`). Black & white with one user-chosen accent.
+- **Animated nav icons** (lucide-animated), always looping.
+- **No em dashes** anywhere in copy or AI output.
+
+## Backend map (`convex/`)
+
+- `engine.ts` — pure progression math (prescribe, rampPlan, nextSetTarget,
+  explainNextSet, clampAdjustment, workingSetCount, shouldStop). No LLM.
+- `workouts.ts` — exercises, editable day templates, sessions/sets, history
+  queries, monthly `rangeStats`, `dayStreak`.
+- `agent.ts` — GPT-5.5: ingest, coachNote, bounded adjustTarget.
+- `coach.ts` — agentic chat (`chatMessages`) with full user context.
+- `food.ts` — image upload + GPT-5.5 vision `analyze` + food log.
+- `nudges.ts`, `memories.ts`, `settings.ts`, `meds.ts` (legacy), `seed.ts`.
 
 ## Setup
 
@@ -46,27 +78,39 @@ Next.js (App Router) · Convex (DB, scheduled functions, auth) · Convex Auth (p
 npm install
 npx convex dev          # creates/links a deployment, pushes functions
 npx @convex-dev/auth    # generates auth keys on the deployment
-npx convex run seed:run # optional: seed exercises + program (edit convex/seed.ts first; seed:reseed wipes & re-imports)
+npx convex run seed:run # optional: seed exercises + program (edit seed.ts first; seed:reseed wipes & re-imports)
 npm run dev
+npm test                # engine unit tests (vitest)
 ```
 
-Optional env vars on the Convex deployment (`npx convex env set KEY value`):
+Set on the Convex deployment (`npx convex env set KEY value`):
 
-- `OPENAI_API_KEY` — enables voice ingest + coach phrasing (app degrades gracefully without it)
-- `RESEND_API_KEY`, `NUDGE_FROM` — enables nudge emails
+- `OPENAI_API_KEY` — enables ingest, coach chat, bounded adjust, and food vision
+  (the deterministic engine still works without it).
+- `RESEND_API_KEY`, `NUDGE_FROM` — optional, for reminder emails.
 
-In the app: Settings → set your gym days, gym hour, and nudge email.
+Frontend env (`.env.local`, also set in Vercel): `NEXT_PUBLIC_CONVEX_URL`,
+`NEXT_PUBLIC_CONVEX_SITE_URL`.
 
-## Personal data
+## Deploy
 
-`convex/seed.ts` is the only place personal training history lives, and it ships with the author's own logged sessions as example data. **If you fork this, replace `SESSIONS` with your own lifts (or empty it) before seeding** so you don't inherit someone else's numbers.
+Backend on Convex Cloud, frontend on Vercel; open the URL in mobile Safari and
+**Add to Home Screen** for a full-screen PWA. Coach + Food vision call OpenAI, so
+they bill against your key.
 
 ## Fork it
 
-This is meant to be forked. To run your own instance you bring your own infrastructure:
+This is meant to be forked. Bring your own infrastructure:
 
-1. Create your own **Convex** deployment (`npx convex dev` links it to your account).
+1. Create your own **Convex** deployment (`npx convex dev`).
 2. Generate your own auth keys (`npx @convex-dev/auth`).
-3. Add your own **OpenAI** key on *your* deployment (`npx convex env set OPENAI_API_KEY ...`). No keys are bundled in this repo.
+3. Add your own **OpenAI** key on *your* deployment. No keys are bundled here.
 
-PRs welcome — the repo includes Convex agent skills under `.claude/` and `.agents/` to help coding agents (Claude / Codex) work on it.
+PRs welcome — the repo includes Convex agent skills under `.claude/` and
+`.agents/` to help coding agents (Claude / Codex) work on it.
+
+## Personal data
+
+`convex/seed.ts` ships with the author's own logged sessions (Naoufal's program,
+Aug–Sep 2025) and per-exercise set counts as example data. **If you fork this,
+replace `SESSIONS` with your own lifts (or empty it) before seeding.**

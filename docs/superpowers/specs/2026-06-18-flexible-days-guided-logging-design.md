@@ -1,7 +1,9 @@
 # Superset v2 — Flexible Days, Picked Exercises, Guided Per-Set Logging
 
 Date: 2026-06-18
-Status: Approved design, pre-implementation
+Status: Historical. This original v2 design has shipped, and the app has grown
+beyond it (Coach chat tab, Food vision, 5-tab nav, Apple pill design, animated
+icons, Vercel/Convex-cloud deploy). See `README.md` for the current state.
 
 ## Problem
 
