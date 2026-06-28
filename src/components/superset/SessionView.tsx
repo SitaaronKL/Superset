@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
@@ -19,7 +19,7 @@ import {
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
 } from "@dnd-kit/core";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import {
   SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove,
 } from "@dnd-kit/sortable";
@@ -28,8 +28,17 @@ import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
-  MessageCircle, ChevronRight, ChevronLeft, GripVertical,
+  Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search,
 } from "lucide-react";
+
+interface SpeechRec {
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
 
 const FATIGUE = [
   { id: "ez", label: "EZ" },
@@ -284,25 +293,32 @@ function AddExerciseDialog({ existingIds, onPick, trigger }: {
         <DrawerHeader className="px-0 text-left"><DrawerTitle className="display text-2xl">Add exercise</DrawerTitle></DrawerHeader>
 
         <div className="flex flex-col gap-3 overflow-y-auto">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-11 rounded-xl" />
+          <div className="relative">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises" className="h-11 pl-10 bg-muted/60" />
+          </div>
           <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
             {available.map((e) => (
               <button key={e._id} onClick={() => { onPick(e._id); setOpen(false); setQ(""); }}
-                className="rounded-xl bg-muted px-3 py-3 text-left text-sm active:bg-foreground active:text-background transition-colors flex justify-between items-center">
+                className="rounded-full bg-muted px-4 py-3 text-left text-sm active:bg-foreground active:text-background transition-colors flex justify-between items-center">
                 <span>{e.name}</span>
                 <span className="text-[10px] text-muted-foreground uppercase">{e.muscleGroup}</span>
               </button>
             ))}
-            {available.length === 0 && <p className="text-xs text-muted-foreground py-2">No matches, quick-add below.</p>}
+            {available.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2 px-1">
+                {q ? `No match for "${q}".` : "No more exercises."} Create it below.
+              </p>
+            )}
           </div>
 
           <div className="border-t border-border pt-3 flex flex-col gap-2 mb-2">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Quick-add new</p>
-            <Input value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Exercise name" className="h-11 rounded-xl" />
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Create a new exercise</p>
+            <Input value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="What's it called? (e.g. Cable Crossover)" className="h-11" />
             <div className="flex gap-2">
-              <Input value={quickGroup} onChange={(e) => setQuickGroup(e.target.value)} placeholder="Muscle group" className="h-11 rounded-xl" />
+              <Input value={quickGroup} onChange={(e) => setQuickGroup(e.target.value)} placeholder="Muscle group (e.g. Chest)" className="h-11 flex-1" />
               <button onClick={() => setCompound(!compound)}
-                className="rounded-xl px-3 text-[11px] tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
+                className="rounded-full px-4 text-[11px] tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
                 style={compound ? { background: "var(--foreground)", color: "var(--background)" } : undefined}>
                 {compound ? "COMPOUND" : "ISOLATION"}
               </button>
@@ -375,7 +391,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   return (
     <div className="p-3 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2 sticky top-0 -mx-3 px-3 py-1.5 bg-background/90 backdrop-blur z-10">
-        <div className="flex items-center gap-1 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {sets.length === 0 ? (
             <button className={iconBtn} onClick={() => discard({ sessionId: session._id })} aria-label="Back">
               <ChevronLeft size={17} />
@@ -427,7 +443,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         <>
           <p className="text-[11px] text-muted-foreground px-1 -mb-0.5">Drag to reorder. Order saves to the day.</p>
           <DndContext sensors={sensors} collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]} onDragEnd={onDragEnd}>
             <SortableContext items={day.exerciseIds} strategy={verticalListSortingStrategy}>
               {day.exerciseIds.map((id) => {
                 const ex = byId.get(id);
@@ -512,9 +528,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const logSet = useMutation(api.workouts.logSet);
   const updateSet = useMutation(api.workouts.updateSet);
   const deleteSet = useMutation(api.workouts.deleteSet);
-  const ingest = useAction(api.agent.ingest);
   const adjust = useAction(api.agent.adjustTarget);
-  const exercisesAll = useQuery(api.workouts.listExercises);
 
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
@@ -522,11 +536,12 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const [timerStart, setTimerStart] = useState<number | null>(null);
   const [stopNote, setStopNote] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<Id<"sets"> | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chat, setChat] = useState("");
+  const [note, setNote] = useState("");
   const [coachMsg, setCoachMsg] = useState<string | null>(null);
   const [adjusted, setAdjusted] = useState<SetTarget | null>(null);
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recRef = useRef<SpeechRec | null>(null);
 
   const workingDone = sets.filter((s) => !s.isWarmup).length;
 
@@ -583,28 +598,45 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   const logWarmupSuggestion = (t: SetTarget) =>
     logSet({ sessionId, exerciseId: exercise._id, setIndex: sets.length, weight: t.weight, reps: t.reps, isWarmup: true });
 
-  const sendChat = async (mode: "log" | "adjust") => {
-    if (!chat.trim()) return;
+  // Per-set note: give the agent context for THIS set; it nudges the rec
+  // (engine-clamped). Logging itself happens via the inputs / global coach.
+  const sendNote = async (text: string) => {
+    if (!text.trim()) return;
     setBusy(true); setCoachMsg(null);
     try {
-      if (mode === "log") {
-        const parsed = await ingest({ transcript: chat });
-        for (const s of parsed.sets) {
-          const ex = (exercisesAll ?? []).find((e) => e.name === s.exerciseName) ?? exercise;
-          await logSet({ sessionId, exerciseId: ex._id, setIndex: sets.length, weight: s.weight, reps: s.reps, fatigue: s.fatigue ?? undefined, isWarmup: s.isWarmup });
-        }
-        setCoachMsg(parsed.readback); resetEntry();
-      } else {
-        const res = await adjust({ exerciseName: exercise.name, baselineWeight: baseline.weight, baselineReps: baseline.reps, weightIncrement: exercise.weightIncrement, userContext: chat });
-        setAdjusted({ weight: res.weight, reps: res.reps });
-        setWeight(String(res.weight)); setReps(String(res.reps));
-        setCoachMsg(res.reason + (res.clamped ? " (kept within a safe range)" : ""));
-      }
-      setChat("");
+      const res = await adjust({
+        exerciseName: exercise.name, baselineWeight: baseline.weight, baselineReps: baseline.reps,
+        weightIncrement: exercise.weightIncrement, userContext: text,
+      });
+      setAdjusted({ weight: res.weight, reps: res.reps });
+      setWeight(String(res.weight)); setReps(String(res.reps));
+      setCoachMsg(res.reason + (res.clamped ? " (kept in a safe range)" : ""));
+      setNote("");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       setCoachMsg(msg.includes("OPENAI_API_KEY") ? "OpenAI key not set on Convex." : "Couldn't process that.");
     } finally { setBusy(false); }
+  };
+
+  const toggleMic = () => {
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) { setCoachMsg("Voice not supported here, type instead."); return; }
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      let text = "";
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript + " ";
+      const final = text.trim();
+      setNote(final);
+      void sendNote(final);
+    };
+    rec.onend = () => setListening(false);
+    rec.start();
+    recRef.current = rec;
+    setListening(true);
   };
 
   return (
@@ -693,23 +725,25 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>{stopNote}</p>
       )}
 
-      {/* Coach, tucked away until needed */}
-      {!chatOpen ? (
-        <button onClick={() => setChatOpen(true)} className="self-start text-xs text-muted-foreground flex items-center gap-1.5">
-          <MessageCircle size={14} /> Talk to coach
-        </button>
-      ) : (
-        <div className="flex flex-col gap-2 border-t border-border pt-3">
-          {coachMsg && (
-            <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 10%, transparent)" }}>{coachMsg}</p>
-          )}
-          <Input value={chat} onChange={(e) => setChat(e.target.value)} placeholder='Log a set, or "shoulder feels tweaky"' className="h-11 rounded-xl" />
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-10 rounded-xl" disabled={!chat.trim() || busy} onClick={() => sendChat("log")}>{busy ? "…" : "Log it"}</Button>
-            <Button variant="outline" className="h-10 rounded-xl" disabled={!chat.trim() || busy} onClick={() => sendChat("adjust")}>{busy ? "…" : "Ask coach"}</Button>
-          </div>
+      {/* Per-set note: text or voice context for the agent on this set */}
+      <div className="flex flex-col gap-2 border-t border-border pt-3">
+        {coachMsg && (
+          <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 10%, transparent)" }}>{coachMsg}</p>
+        )}
+        <div className="flex items-center gap-2">
+          <Input value={note} onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void sendNote(note); }}
+            placeholder="Note for this set (e.g. shoulder felt tweaky)" className="h-10 flex-1" />
+          <button onClick={toggleMic} aria-label="Voice note"
+            className="h-10 w-10 grid place-items-center rounded-full ring-1 ring-foreground/15 shrink-0"
+            style={listening ? { background: "var(--accent-user)", color: "#fff" } : undefined}>
+            {listening ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+          <Button className="h-10 shrink-0" disabled={!note.trim() || busy} onClick={() => sendNote(note)}>
+            {busy ? "…" : "Send"}
+          </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -98,6 +98,13 @@ export default defineSchema({
     value: v.string(),
   }).index("by_key", ["key"]),
 
+  // Agentic coach chat. One row per message in the conversation.
+  chatMessages: defineTable({
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    createdAt: v.number(),
+  }).index("by_time", ["createdAt"]),
+
   // Food / consumption log. Each entry is an item with a photo (and optional
   // second photo of the back / nutrition label), recorded for the day.
   foodLogs: defineTable({

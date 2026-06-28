@@ -10,6 +10,7 @@
 
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as coach from "../coach.js";
 import type * as crons from "../crons.js";
 import type * as engine from "../engine.js";
 import type * as food from "../food.js";
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
+  coach: typeof coach;
   crons: typeof crons;
   engine: typeof engine;
   food: typeof food;
