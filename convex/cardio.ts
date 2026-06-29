@@ -43,6 +43,14 @@ export const sessionCardio = query({
   },
 });
 
+// Newest-first cardio entries across all sessions, for dashboard aggregation.
+export const recentCardio = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("cardio").withIndex("by_time").order("desc").take(300);
+  },
+});
+
 // Remove a single cardio entry.
 export const deleteCardio = mutation({
   args: { id: v.id("cardio") },
