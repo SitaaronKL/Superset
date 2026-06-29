@@ -39,6 +39,7 @@ export default function SettingsView() {
   const [proteinGoal, setProteinGoal] = useState<string | null>(null);
   const [calorieGoal, setCalorieGoal] = useState<string | null>(null);
   const [weightGoal, setWeightGoal] = useState<string | null>(null);
+  const [waterGoal, setWaterGoal] = useState<string | null>(null);
 
   if (!settings) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
 
@@ -116,6 +117,14 @@ export default function SettingsView() {
             value={weightGoal ?? settings.weightGoal ?? ""}
             onChange={(e) => setWeightGoal(e.target.value)}
             onBlur={() => weightGoal !== null && setSetting({ key: "weightGoal", value: weightGoal })}
+            className="h-9 max-w-32 text-center num" />
+        </label>
+        <label className="flex items-center justify-between gap-3">
+          <span className="text-sm shrink-0">Water (cups)</span>
+          <Input inputMode="numeric" placeholder="e.g. 8"
+            value={waterGoal ?? settings.waterGoal ?? ""}
+            onChange={(e) => setWaterGoal(e.target.value)}
+            onBlur={() => waterGoal !== null && setSetting({ key: "waterGoal", value: waterGoal })}
             className="h-9 max-w-32 text-center num" />
         </label>
       </section>
