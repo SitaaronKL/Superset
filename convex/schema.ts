@@ -138,4 +138,9 @@ export default defineSchema({
     protein: v.optional(v.number()),
     summary: v.optional(v.string()),
   }).index("by_time", ["loggedAt"]),
+
+  // Hydration log: one row per cup of water.
+  waterLogs: defineTable({
+    loggedAt: v.number(),
+  }).index("by_time", ["loggedAt"]),
 });
