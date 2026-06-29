@@ -12,6 +12,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Plus, Camera, Trash2, Utensils, X } from "lucide-react";
 import WeightCard from "./WeightCard";
+import InsightCard from "./InsightCard";
 
 function GoalBar({ label, value, goal, unit }: { label: string; value: number; goal: number; unit: string }) {
   const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
@@ -77,6 +78,8 @@ export default function FoodView() {
           <p className="text-[11px] text-muted-foreground">Set daily goals in Settings to track progress.</p>
         )}
       </Card>
+
+      <InsightCard />
 
       <WeightCard />
 
