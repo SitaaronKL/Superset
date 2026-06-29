@@ -38,6 +38,7 @@ export default function SettingsView() {
   const [gymHour, setGymHour] = useState<string | null>(null);
   const [proteinGoal, setProteinGoal] = useState<string | null>(null);
   const [calorieGoal, setCalorieGoal] = useState<string | null>(null);
+  const [weightGoal, setWeightGoal] = useState<string | null>(null);
 
   if (!settings) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
 
@@ -107,6 +108,14 @@ export default function SettingsView() {
             value={calorieGoal ?? settings.calorieGoal ?? ""}
             onChange={(e) => setCalorieGoal(e.target.value)}
             onBlur={() => calorieGoal !== null && setSetting({ key: "calorieGoal", value: calorieGoal })}
+            className="h-9 max-w-32 text-center num" />
+        </label>
+        <label className="flex items-center justify-between gap-3">
+          <span className="text-sm shrink-0">Goal weight (lb)</span>
+          <Input inputMode="decimal" placeholder="e.g. 175"
+            value={weightGoal ?? settings.weightGoal ?? ""}
+            onChange={(e) => setWeightGoal(e.target.value)}
+            onBlur={() => weightGoal !== null && setSetting({ key: "weightGoal", value: weightGoal })}
             className="h-9 max-w-32 text-center num" />
         </label>
       </section>

@@ -71,6 +71,7 @@ function Sparkline({ entries }: { entries: Entry[] }) {
 
 export default function WeightCard() {
   const weights = useQuery(api.weight.listWeights) as Entry[] | undefined;
+  const settings = useQuery(api.settings.getAll);
   const logWeight = useMutation(api.weight.logWeight);
   const deleteWeight = useMutation(api.weight.deleteWeight);
 
@@ -79,6 +80,19 @@ export default function WeightCard() {
 
   const latest = weights?.[0];
   const prev = weights?.[1];
+  const goal = Number(settings?.weightGoal) || 0;
+
+  // Progress from the first weigh-in toward the goal (works for losing or gaining).
+  const goalProgress = useMemo(() => {
+    if (!goal || !weights || weights.length === 0) return null;
+    const start = weights[weights.length - 1].weight;
+    const current = weights[0].weight;
+    const total = Math.abs(start - goal);
+    const done = Math.abs(start - current);
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : (current === goal ? 100 : 0);
+    const toGo = Math.abs(current - goal);
+    return { pct, toGo, reached: toGo < 0.05 };
+  }, [goal, weights]);
 
   const weekAgo = useMemo(() => {
     if (!weights || weights.length === 0) return undefined;
@@ -161,6 +175,18 @@ export default function WeightCard() {
             <span>{dateLabel(weights[weights.length - 1].loggedAt)}</span>
             <span>{dateLabel(latest!.loggedAt)}</span>
           </div>
+
+          {goalProgress && (
+            <div className="flex flex-col gap-1 pt-1">
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="uppercase tracking-widest text-muted-foreground text-[10px]">Goal {goal} lb</span>
+                <span className="num">{goalProgress.reached ? "reached" : `${goalProgress.toGo.toFixed(1)} lb to go`}</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full transition-[width]" style={{ width: `${goalProgress.pct}%`, background: "var(--accent-user)" }} />
+              </div>
+            </div>
+          )}
         </>
       )}
 
