@@ -10,6 +10,7 @@
 
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as cardio from "../cardio.js";
 import type * as coach from "../coach.js";
 import type * as crons from "../crons.js";
 import type * as engine from "../engine.js";
@@ -20,6 +21,7 @@ import type * as memories from "../memories.js";
 import type * as nudges from "../nudges.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
+import type * as weight from "../weight.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -31,6 +33,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
+  cardio: typeof cardio;
   coach: typeof coach;
   crons: typeof crons;
   engine: typeof engine;
@@ -41,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   nudges: typeof nudges;
   seed: typeof seed;
   settings: typeof settings;
+  weight: typeof weight;
   workouts: typeof workouts;
 }>;
 

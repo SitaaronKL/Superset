@@ -11,6 +11,22 @@ import { Badge } from "@/components/ui/badge";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Plus, Camera, Trash2, Utensils, X } from "lucide-react";
+import WeightCard from "./WeightCard";
+
+function GoalBar({ label, value, goal, unit }: { label: string; value: number; goal: number; unit: string }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="uppercase tracking-widest text-muted-foreground text-[10px]">{label}</span>
+        <span className="num">{value}{goal > 0 ? ` / ${goal}` : ""} {unit}</span>
+      </div>
+      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: "var(--accent-user)" }} />
+      </div>
+    </div>
+  );
+}
 
 const dayLabel = (d: number) => {
   const date = new Date(d);
@@ -24,7 +40,17 @@ const timeLabel = (d: number) => new Date(d).toLocaleTimeString(undefined, { hou
 
 export default function FoodView() {
   const logs = useQuery(api.food.listFoodLogs);
+  const settings = useQuery(api.settings.getAll);
   const del = useMutation(api.food.deleteFoodLog);
+
+  const [todayStart] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); });
+  const today = useMemo(() => {
+    let cal = 0, pro = 0;
+    for (const l of logs ?? []) if (l.loggedAt >= todayStart) { cal += l.calories ?? 0; pro += l.protein ?? 0; }
+    return { cal, pro };
+  }, [logs, todayStart]);
+  const proteinGoal = Number(settings?.proteinGoal) || 0;
+  const calorieGoal = Number(settings?.calorieGoal) || 0;
 
   const days = useMemo(() => {
     const out: { label: string; items: NonNullable<typeof logs> }[] = [];
@@ -43,6 +69,16 @@ export default function FoodView() {
         <h2 className="display text-2xl mt-1">FOOD</h2>
         <AddFoodDrawer />
       </div>
+
+      <Card className="gap-3 p-3">
+        <GoalBar label="Protein today" value={today.pro} goal={proteinGoal} unit="g" />
+        <GoalBar label="Calories today" value={today.cal} goal={calorieGoal} unit="cal" />
+        {proteinGoal === 0 && calorieGoal === 0 && (
+          <p className="text-[11px] text-muted-foreground">Set daily goals in Settings to track progress.</p>
+        )}
+      </Card>
+
+      <WeightCard />
 
       {logs === undefined ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

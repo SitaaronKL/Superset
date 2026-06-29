@@ -105,6 +105,26 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_time", ["createdAt"]),
 
+  // Body-weight log: one entry per weigh-in.
+  bodyWeight: defineTable({
+    weight: v.number(),
+    loggedAt: v.number(),
+    note: v.optional(v.string()),
+  }).index("by_time", ["loggedAt"]),
+
+  // Cardio log: optionally tied to a workout session.
+  cardio: defineTable({
+    sessionId: v.optional(v.id("sessions")),
+    type: v.string(), // e.g. "Incline walk", "Stairmaster", "Run"
+    description: v.optional(v.string()),
+    minutes: v.optional(v.number()),
+    calories: v.optional(v.number()),
+    sweat: v.optional(v.union(v.literal("light"), v.literal("medium"), v.literal("heavy"), v.literal("soaked"))),
+    loggedAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_time", ["loggedAt"]),
+
   // Food / consumption log. Each entry is an item with a photo (and optional
   // second photo of the back / nutrition label), recorded for the day.
   foodLogs: defineTable({

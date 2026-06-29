@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { CardioSummary } from "./CardioLogger";
 
 const FATIGUE_LABEL: Record<string, string> = { ez: "EZ", struggle: "HARD", failure: "FAIL", tooTired: "DEAD" };
 const monthKey = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -118,6 +119,8 @@ function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBac
           </CardContent>
         </Card>
       ))}
+
+      <CardioSummary sessionId={sessionId} />
     </div>
   );
 }

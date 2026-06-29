@@ -26,6 +26,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
+import { CardioLogger } from "./CardioLogger";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
   Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search,
@@ -476,6 +477,8 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
             </button>
           } />
       )}
+
+      {!reordering && <CardioLogger sessionId={session._id} />}
     </div>
   );
 }
