@@ -16,11 +16,13 @@ import type * as crons from "../crons.js";
 import type * as engine from "../engine.js";
 import type * as food from "../food.js";
 import type * as http from "../http.js";
+import type * as insight from "../insight.js";
 import type * as meds from "../meds.js";
 import type * as memories from "../memories.js";
 import type * as nudges from "../nudges.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
+import type * as water from "../water.js";
 import type * as weight from "../weight.js";
 import type * as workouts from "../workouts.js";
 
@@ -39,11 +41,13 @@ declare const fullApi: ApiFromModules<{
   engine: typeof engine;
   food: typeof food;
   http: typeof http;
+  insight: typeof insight;
   meds: typeof meds;
   memories: typeof memories;
   nudges: typeof nudges;
   seed: typeof seed;
   settings: typeof settings;
+  water: typeof water;
   weight: typeof weight;
   workouts: typeof workouts;
 }>;

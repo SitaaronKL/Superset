@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "@/components/ui/card";
@@ -28,7 +28,7 @@ export default function NetCaloriesCard() {
   const cardio = useQuery(api.cardio.recentCardio);
   const settings = useQuery(api.settings.getAll);
 
-  const since = useMemo(startOfToday, []);
+  const [since] = useState(() => startOfToday());
 
   const inCals = Math.round(sumToday(food, since));
   const outCals = Math.round(sumToday(cardio, since));

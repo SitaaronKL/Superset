@@ -13,6 +13,9 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { Plus, Camera, Trash2, Utensils, X } from "lucide-react";
 import WeightCard from "./WeightCard";
 import InsightCard from "./InsightCard";
+import NetCaloriesCard from "./NetCaloriesCard";
+import ProteinStreakCard from "./ProteinStreakCard";
+import WaterCard from "./WaterCard";
 
 function GoalBar({ label, value, goal, unit }: { label: string; value: number; goal: number; unit: string }) {
   const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
@@ -80,6 +83,11 @@ export default function FoodView() {
       </Card>
 
       <InsightCard />
+      <NetCaloriesCard />
+      <div className="grid grid-cols-2 gap-2">
+        <ProteinStreakCard />
+        <WaterCard />
+      </div>
 
       <WeightCard />
 
