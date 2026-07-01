@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Card } from "@/components/ui/card";
+import { StatCard } from "./StatCard";
 import { Flame } from "lucide-react";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -50,27 +50,29 @@ export default function ProteinStreakCard() {
   }, [byDay, todayKey]);
 
   return (
-    <Card className="gap-2 p-4">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2">
-          <Flame size={18} style={{ color: streak > 0 ? "var(--success)" : "var(--muted-foreground)" }} />
-          <span className="num display text-xl">{streak}</span>
-          <span className="text-xs text-muted-foreground">day protein streak</span>
+    <StatCard label="Protein streak"
+      icon={<Flame style={{ color: streak > 0 ? "var(--success)" : undefined }} />}>
+      <div className="flex items-end gap-2">
+        <span className="num display text-5xl leading-none"
+          style={streak > 0 ? { color: "var(--success)" } : undefined}>
+          {streak}
         </span>
-        {!proteinGoal && <span className="text-xs text-muted-foreground">set a protein goal</span>}
+        <span className="mb-1 text-sm text-muted-foreground">{streak === 1 ? "day" : "days"}</span>
       </div>
-      {avg && (
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-baseline gap-1">
-            <span className="num text-base font-semibold">{avg.pro}</span>
-            <span className="text-muted-foreground">g protein / day (7d)</span>
+      {!proteinGoal ? (
+        <p className="text-xs text-muted-foreground">Set a protein goal in Settings to start a streak.</p>
+      ) : avg ? (
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex items-baseline justify-between">
+            <span className="text-muted-foreground">protein / day (7d)</span>
+            <span className="num font-semibold">{avg.pro}g</span>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="num text-base font-semibold">{avg.cal}</span>
+          <div className="flex items-baseline justify-between">
             <span className="text-muted-foreground">cal / day (7d)</span>
+            <span className="num font-semibold">{avg.cal}</span>
           </div>
         </div>
-      )}
-    </Card>
+      ) : null}
+    </StatCard>
   );
 }

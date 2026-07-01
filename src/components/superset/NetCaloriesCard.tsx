@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Card } from "@/components/ui/card";
+import { StatCard } from "./StatCard";
 import { Flame } from "lucide-react";
 
 const startOfToday = () => {
@@ -37,12 +37,7 @@ export default function NetCaloriesCard() {
   const remaining = goal ? goal - net : 0;
 
   return (
-    <Card className="p-4 gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">Calories in vs out</span>
-        <Flame className="size-4 text-muted-foreground" />
-      </div>
-
+    <StatCard label="Calories in vs out" icon={<Flame />}>
       {loading ? (
         <div className="h-24 animate-pulse rounded-lg bg-muted" />
       ) : (
@@ -78,6 +73,6 @@ export default function NetCaloriesCard() {
           )}
         </>
       )}
-    </Card>
+    </StatCard>
   );
 }

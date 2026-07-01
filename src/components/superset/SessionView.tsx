@@ -29,9 +29,10 @@ import { VoiceLog } from "./VoiceLog";
 import { CardioLogger } from "./CardioLogger";
 import { confirmTap } from "@/lib/confirm";
 import {
-  Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
-  Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search,
+  Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, ArrowUpDown,
+  Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search, BicepsFlexed,
 } from "lucide-react";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 
 interface SpeechRec {
   continuous: boolean;
@@ -54,6 +55,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RARELY_DONE_DAYS = 30;
 
 const card = "rounded-card bg-card ring-1 ring-foreground/10 shadow-sm";
+// One grid for every set row (label / numbers / meta) so weights and reps
+// align in columns across warmups, logged sets, and the ramp ahead.
+const setRow = "grid grid-cols-[2.75rem_1fr_auto] items-center gap-3";
 
 export default function SessionView() {
   const session = useQuery(api.workouts.activeSession);
@@ -114,9 +118,13 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
       </div>
 
       {thisMonth && thisMonth.workouts === 0 && (
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          No workouts logged this month yet. Tap <span className="font-semibold">+</span> to start one.
-        </p>
+        <Empty className="mt-6">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><BicepsFlexed /></EmptyMedia>
+            <EmptyTitle>No workouts this month</EmptyTitle>
+            <EmptyDescription>Tap the + below to pick a day and start lifting.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {/* FAB → what kind of day */}
@@ -247,7 +255,7 @@ function DayEditor({ day, onClose }: { day: Doc<"programDays">; onClose: () => v
                 <button onClick={() => move(i, i - 1)} disabled={i === 0} className="p-1.5 disabled:opacity-30"><ChevronUp size={16} /></button>
                 <button onClick={() => move(i, i + 1)} disabled={i === ids.length - 1} className="p-1.5 disabled:opacity-30"><ChevronDown size={16} /></button>
                 <button onClick={() => setExercises({ id: liveDay._id, exerciseIds: ids.filter((x) => x !== id) })}
-                  className="p-1.5 text-muted-foreground"><X size={16} /></button>
+                  aria-label="Remove from day" className="p-1.5 text-muted-foreground"><Trash2 size={15} /></button>
               </div>
             ))}
             {ids.length === 0 && <p className="text-xs text-muted-foreground py-2">No exercises yet, add some below.</p>}
@@ -659,9 +667,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         )}
         {suggestionWarmups.map((t, i) => (
           <button key={`sw${i}`} onClick={() => logWarmupSuggestion(t)}
-            className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-1.5 text-left text-muted-foreground">
-            <span className="text-xs font-semibold tracking-wide w-11">WARM</span>
-            <span className="num flex-1 text-sm">{t.weight} <span className="text-muted-foreground">×</span> {t.reps}</span>
+            className={`${setRow} rounded-lg bg-muted/50 px-3 py-1.5 text-left text-muted-foreground`}>
+            <span className="text-xs font-semibold tracking-wide">WARM</span>
+            <span className="num text-sm">{t.weight} <span className="text-muted-foreground">×</span> {t.reps}</span>
             <span className="text-xs">tap to log</span>
           </button>
         ))}
@@ -682,16 +690,20 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             {adjusted && <span className="text-xs text-muted-foreground ml-auto">adjusted</span>}
           </div>
 
-          {/* The recommendation, explicit, tap to apply (no silent autofill) */}
+          {/* The recommendation is the focal point of the screen: the one
+              number the lifter needs next, loudest thing on it. Tap to apply
+              (no silent autofill). */}
           {target.weight > 0 ? (
             <button onClick={applyRec}
-              className="rounded-md bg-card/70 ring-1 ring-foreground/10 px-2.5 py-2 text-left active:opacity-70">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs uppercase tracking-widest text-muted-foreground">rec</span>
-                <span className="num text-lg font-semibold">{target.weight} <span className="text-sm text-muted-foreground">× {target.reps}</span></span>
-                <span className="text-xs text-muted-foreground ml-auto">tap to use →</span>
+              className="rounded-lg bg-card/70 ring-1 ring-foreground/10 px-3 py-2.5 text-left active:opacity-70">
+              <div className="flex items-end justify-between gap-2">
+                <span className="num display text-4xl leading-none">
+                  {target.weight}
+                  <span className="text-xl text-muted-foreground"> × {target.reps}</span>
+                </span>
+                <span className="text-xs text-muted-foreground mb-0.5 shrink-0">tap to use →</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
+              <p className="text-xs text-muted-foreground mt-2 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
             </button>
           ) : (
             <p className="text-xs text-muted-foreground px-1">{recReason}</p>
@@ -718,9 +730,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 
         {/* What's coming after, the ramp ahead */}
         {futureTargets.map((t, i) => (
-          <div key={`ft${i}`} className="flex items-center gap-3 px-3 py-1 text-muted-foreground/60">
-            <span className="text-xs font-semibold tracking-wide w-11">SET {workingDone + 2 + i}</span>
-            <span className="num flex-1 text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "·"}</span>
+          <div key={`ft${i}`} className={`${setRow} px-3 py-1 text-muted-foreground/60`}>
+            <span className="text-xs font-semibold tracking-wide whitespace-nowrap">SET {workingDone + 2 + i}</span>
+            <span className="num text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "·"}</span>
             <span className="text-xs">planned</span>
           </div>
         ))}
@@ -756,18 +768,20 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 
 function LoggedRow({ label, set, onTap }: { label: string; set: Doc<"sets">; onTap: () => void }) {
   return (
-    <button onClick={onTap} className="flex items-center gap-3 rounded-lg bg-muted px-3 py-1.5 text-left active:opacity-70">
-      <span className="text-xs font-semibold tracking-wide w-11 text-muted-foreground">{label}</span>
-      <span className="num flex-1 font-medium text-sm">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
-      {set.fatigue && (
-        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-md"
-          style={set.fatigue === "failure" || set.fatigue === "tooTired"
-            ? { background: "var(--destructive)", color: "white" }
-            : { background: "var(--foreground)", color: "var(--background)" }}>
-          {FATIGUE.find((f) => f.id === set.fatigue)?.label}
-        </span>
-      )}
-      <Pencil size={13} className="text-muted-foreground/50" />
+    <button onClick={onTap} className={`${setRow} rounded-lg bg-muted px-3 py-1.5 text-left active:opacity-70`}>
+      <span className="text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground">{label}</span>
+      <span className="num font-medium text-sm">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
+      <span className="flex items-center gap-2">
+        {set.fatigue && (
+          <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-md"
+            style={set.fatigue === "failure" || set.fatigue === "tooTired"
+              ? { background: "var(--destructive)", color: "white" }
+              : { background: "var(--foreground)", color: "var(--background)" }}>
+            {FATIGUE.find((f) => f.id === set.fatigue)?.label}
+          </span>
+        )}
+        <Pencil size={13} className="text-muted-foreground/50" />
+      </span>
     </button>
   );
 }

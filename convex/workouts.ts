@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { fatigueValidator } from "./schema";
-import { prescribe, shouldStop, bestE1RM, type SetRecord } from "./engine";
+import { prescribe, shouldStop, bestE1RM, e1RM, type SetRecord } from "./engine";
 import type { Doc, Id } from "./_generated/dataModel";
 
 async function lastTwoSessionsFor(
@@ -356,6 +356,7 @@ export const sessionSummaries = query({
   handler: async (ctx) => {
     const sessions = await ctx.db.query("sessions").withIndex("by_date").order("desc").take(200);
     const done = sessions.filter((s) => s.status === "done");
+    const groupByExercise = new Map<string, string>();
     return await Promise.all(
       done.map(async (s) => {
         const sets = await ctx.db
@@ -364,15 +365,58 @@ export const sessionSummaries = query({
           .collect();
         const day = s.programDayId ? await ctx.db.get(s.programDayId) : null;
         const exerciseIds = new Set(sets.map((x) => x.exerciseId as string));
+        // Dominant muscle group = most working sets, for the glanceable row badge.
+        const groupCounts = new Map<string, number>();
+        for (const x of sets) {
+          if (x.isWarmup) continue;
+          const k = x.exerciseId as string;
+          if (!groupByExercise.has(k)) {
+            const ex = await ctx.db.get(x.exerciseId);
+            groupByExercise.set(k, ex?.muscleGroup ?? "");
+          }
+          const g = groupByExercise.get(k)!;
+          if (g) groupCounts.set(g, (groupCounts.get(g) ?? 0) + 1);
+        }
+        const muscleGroup =
+          [...groupCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
         return {
           _id: s._id,
           date: s.date,
           dayName: day?.name ?? "Freestyle",
           exerciseCount: exerciseIds.size,
           setCount: sets.filter((x) => !x.isWarmup).length,
+          muscleGroup,
         };
       })
     );
+  },
+});
+
+// Per-session top set for one exercise, oldest first. Powers the PR-trend
+// drill-down in History (weight sparkline + best e1RM).
+export const exerciseTrend = query({
+  args: { exerciseId: v.id("exercises") },
+  handler: async (ctx, { exerciseId }) => {
+    const sets = await ctx.db
+      .query("sets")
+      .withIndex("by_exercise", (q) => q.eq("exerciseId", exerciseId))
+      .collect();
+    const bySession = new Map<string, { topWeight: number; topE1RM: number; loggedAt: number }>();
+    for (const s of sets) {
+      if (s.isWarmup) continue;
+      const k = s.sessionId as string;
+      const cur = bySession.get(k) ?? { topWeight: 0, topE1RM: 0, loggedAt: s.loggedAt };
+      cur.topWeight = Math.max(cur.topWeight, s.weight);
+      cur.topE1RM = Math.max(cur.topE1RM, e1RM(s.weight, s.reps));
+      cur.loggedAt = Math.min(cur.loggedAt, s.loggedAt);
+      bySession.set(k, cur);
+    }
+    const points = [...bySession.values()]
+      .sort((a, b) => a.loggedAt - b.loggedAt)
+      .slice(-20)
+      .map((p) => ({ date: p.loggedAt, topWeight: p.topWeight, topE1RM: Math.round(p.topE1RM) }));
+    const best = points.reduce((m, p) => Math.max(m, p.topE1RM), 0);
+    return { points, bestE1RM: best };
   },
 });
 
@@ -388,12 +432,20 @@ export const sessionDetail = query({
       .collect();
     const day = session.programDayId ? await ctx.db.get(session.programDayId) : null;
 
-    const groups = new Map<string, { exerciseName: string; muscleGroup: string; sets: Doc<"sets">[] }>();
+    const groups = new Map<
+      string,
+      { exerciseId: Id<"exercises">; exerciseName: string; muscleGroup: string; sets: Doc<"sets">[] }
+    >();
     for (const s of sets.sort((a, b) => a.setIndex - b.setIndex)) {
       const key = s.exerciseId as string;
       if (!groups.has(key)) {
         const ex = await ctx.db.get(s.exerciseId);
-        groups.set(key, { exerciseName: ex?.name ?? "·", muscleGroup: ex?.muscleGroup ?? "", sets: [] });
+        groups.set(key, {
+          exerciseId: s.exerciseId,
+          exerciseName: ex?.name ?? "·",
+          muscleGroup: ex?.muscleGroup ?? "",
+          sets: [],
+        });
       }
       groups.get(key)!.sets.push(s);
     }

@@ -6,7 +6,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { StatCard } from "./StatCard";
+import { Sparkline } from "./Sparkline";
 import { Badge } from "@/components/ui/badge";
 import {
   Empty,
@@ -24,49 +25,6 @@ const dateLabel = (t: number) =>
   new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 type Entry = { _id: Id<"bodyWeight">; weight: number; loggedAt: number; note?: string };
-
-function Sparkline({ entries }: { entries: Entry[] }) {
-  // entries are newest first; chart oldest left to newest right.
-  const points = useMemo(() => [...entries].reverse(), [entries]);
-  if (points.length < 2) return null;
-
-  const W = 100;
-  const H = 48;
-  const pad = 4;
-  const weights = points.map((p) => p.weight);
-  const min = Math.min(...weights);
-  const max = Math.max(...weights);
-  const span = max - min || 1;
-
-  const coords = points.map((p, i) => {
-    const x = pad + (i / (points.length - 1)) * (W - pad * 2);
-    const y = pad + (1 - (p.weight - min) / span) * (H - pad * 2);
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  });
-
-  const last = coords[coords.length - 1].split(",");
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      className="w-full"
-      style={{ height: 48 }}
-      aria-hidden
-    >
-      <polyline
-        points={coords.join(" ")}
-        fill="none"
-        stroke="var(--accent-user)"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-      <circle cx={last[0]} cy={last[1]} r={2.5} fill="var(--accent-user)" />
-    </svg>
-  );
-}
 
 export default function WeightCard() {
   const weights = useQuery(api.weight.listWeights) as Entry[] | undefined;
@@ -126,12 +84,7 @@ export default function WeightCard() {
   };
 
   return (
-    <Card className="p-4 gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">Body weight</span>
-        <Scale className="size-4 text-muted-foreground" />
-      </div>
-
+    <StatCard label="Body weight" icon={<Scale />}>
       {weights === undefined ? (
         <div className="h-24 animate-pulse rounded-lg bg-muted" />
       ) : weights.length === 0 ? (
@@ -168,7 +121,7 @@ export default function WeightCard() {
             </div>
           )}
 
-          <Sparkline entries={weights} />
+          <Sparkline values={[...weights].reverse().map((w) => w.weight)} />
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{dateLabel(weights[weights.length - 1].loggedAt)}</span>
@@ -219,6 +172,6 @@ export default function WeightCard() {
           </button>
         </div>
       )}
-    </Card>
+    </StatCard>
   );
 }

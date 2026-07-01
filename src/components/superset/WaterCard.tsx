@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Card } from "@/components/ui/card";
+import { StatCard } from "./StatCard";
 import { Button } from "@/components/ui/button";
 import { Droplet, Droplets, Minus, Plus } from "lucide-react";
 import { confirmTap } from "@/lib/confirm";
@@ -28,12 +28,7 @@ export default function WaterCard() {
   const pips = Math.max(goal, count);
 
   return (
-    <Card className="p-4 gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">Water</span>
-        <Droplets className="size-4 text-muted-foreground" />
-      </div>
-
+    <StatCard label="Water" icon={<Droplets />}>
       <div className="flex items-end gap-2">
         <span className="num display text-5xl leading-none" style={reached ? { color: "var(--success)" } : undefined}>
           {count}
@@ -70,6 +65,6 @@ export default function WaterCard() {
           <Plus className="size-4" /> Add cup
         </Button>
       </div>
-    </Card>
+    </StatCard>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Apple, MessageCircle } from "lucide-react";
+import { Utensils, MessageCircle } from "lucide-react";
 import { BicepsFlexedIcon } from "@/components/ui/biceps-flexed";
 import { HistoryIcon } from "@/components/ui/history";
 import { SettingsIcon } from "@/components/ui/settings";
@@ -88,7 +88,7 @@ export default function Home() {
               <button key={id} onClick={() => setTab(id)}
                 className="flex flex-col items-center gap-1 py-2 text-xs uppercase tracking-wide"
                 style={tab === id ? { color: "var(--accent-user)" } : undefined}>
-                {Icon ? <LoopIcon Comp={Icon} size={20} delay={i * 500} /> : <Apple size={20} strokeWidth={1.6} />}
+                {Icon ? <LoopIcon Comp={Icon} size={20} delay={i * 500} /> : <Utensils size={20} strokeWidth={1.6} />}
                 {label}
               </button>
             );

@@ -158,6 +158,8 @@
   --hairline: oklch(0 0 0 / 12%);
   --page-padding: 1rem;
   --fab-offset: 4.5rem;
+  /* Viewport minus the app header (3.5rem) and bottom nav (4rem). */
+  --chat-height: calc(100dvh - 7.5rem);
 }
 
 .dark {

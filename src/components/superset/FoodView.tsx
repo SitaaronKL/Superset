@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { Plus, Camera, Trash2, Utensils, X } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Camera, Trash2, Utensils, X } from "lucide-react";
 import WeightCard from "./WeightCard";
 import InsightCard from "./InsightCard";
 import NetCaloriesCard from "./NetCaloriesCard";
@@ -51,6 +55,8 @@ export default function FoodView() {
   const logs = useQuery(api.food.listFoodLogs);
   const settings = useQuery(api.settings.getAll);
   const del = useMutation(api.food.deleteFoodLog);
+  const [addOpen, setAddOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Id<"foodLogs"> | null>(null);
 
   const [todayStart] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); });
   const today = useMemo(() => {
@@ -73,11 +79,11 @@ export default function FoodView() {
   }, [logs]);
 
   return (
-    <div className="p-(--page-padding) flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="display text-2xl mt-1">FOOD</h2>
-        <AddFoodDrawer />
-      </div>
+    <div className="p-(--page-padding) pb-24 flex flex-col gap-4">
+      <h2 className="display text-2xl mt-1">FOOD</h2>
+
+      {/* Hero first: today's net balance, then the goal bars and the rest. */}
+      <NetCaloriesCard />
 
       <Card className="gap-3 p-4">
         <GoalBar label="Protein today" value={today.pro} goal={proteinGoal} unit="g" moreIsGood />
@@ -88,7 +94,6 @@ export default function FoodView() {
       </Card>
 
       <InsightCard />
-      <NetCaloriesCard />
       <div className="grid grid-cols-2 gap-2">
         <ProteinStreakCard />
         <WaterCard />
@@ -99,12 +104,15 @@ export default function FoodView() {
       {logs === undefined ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : logs.length === 0 ? (
-        <Empty className="mt-10">
+        <Empty className="mt-6">
           <EmptyHeader>
             <EmptyMedia variant="icon"><Utensils /></EmptyMedia>
             <EmptyTitle>Nothing logged yet</EmptyTitle>
             <EmptyDescription>Snap a photo of what you eat or drink to start your daily log.</EmptyDescription>
           </EmptyHeader>
+          <Button className="gap-2" onClick={() => setAddOpen(true)}>
+            <Camera size={16} /> Log your first meal
+          </Button>
         </Empty>
       ) : (
         days.map((day) => (
@@ -136,7 +144,7 @@ export default function FoodView() {
                     ) : null}
                     <span className="num text-xs text-muted-foreground">{timeLabel(l.loggedAt)}</span>
                   </div>
-                  <button onClick={() => del({ id: l._id })} aria-label="Delete"
+                  <button onClick={() => setPendingDelete(l._id)} aria-label="Delete"
                     className="absolute top-1.5 right-1.5 h-9 w-9 grid place-items-center rounded-full bg-black/45 text-white backdrop-blur active:scale-90">
                     <Trash2 size={15} />
                   </button>
@@ -146,6 +154,34 @@ export default function FoodView() {
           </div>
         ))
       )}
+
+      {/* Camera FAB: same spot and shape as the Train FAB, so one learned
+          gesture (accent circle above the nav) means "add" everywhere. */}
+      <button onClick={() => setAddOpen(true)} aria-label="Log food"
+        className="fixed bottom-(--fab-offset) left-1/2 -translate-x-1/2 z-20 h-14 w-14 rounded-full grid place-items-center shadow-lg active:scale-95 transition-transform"
+        style={{ background: "var(--accent-user)", color: "var(--accent-foreground)" }}>
+        <Camera size={24} />
+      </button>
+
+      <AddFoodDrawer open={addOpen} onOpenChange={setAddOpen} />
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent className="rounded-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Its calories and protein come off today&apos;s totals.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="rounded-xl">Keep it</AlertDialogCancel>
+            <AlertDialogAction className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => { if (pendingDelete) void del({ id: pendingDelete }); setPendingDelete(null); }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -177,11 +213,10 @@ function PhotoPicker({ label, file, onPick }: { label: string; file: File | null
   );
 }
 
-function AddFoodDrawer() {
+function AddFoodDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const generateUploadUrl = useMutation(api.food.generateUploadUrl);
   const analyze = useAction(api.food.analyze);
   const addFoodLog = useMutation(api.food.addFoodLog);
-  const [open, setOpen] = useState(false);
   const [itemFile, setItemFile] = useState<File | null>(null);
   const [backFile, setBackFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -213,7 +248,7 @@ function AddFoodDrawer() {
         protein: a.protein || undefined,
         summary: a.summary || undefined,
       });
-      setItemFile(null); setBackFile(null); setName(""); setOpen(false);
+      setItemFile(null); setBackFile(null); setName(""); onOpenChange(false);
     } catch {
       setError("Couldn't read that photo. Try again, or type a name and save without analysis.");
     } finally {
@@ -222,10 +257,7 @@ function AddFoodDrawer() {
   };
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <Button className="gap-1.5"><Plus size={16} /> Log food</Button>
-      </DrawerTrigger>
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-w-md mx-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <DrawerHeader className="px-0 text-left"><DrawerTitle className="display text-2xl">Log food</DrawerTitle></DrawerHeader>
 
