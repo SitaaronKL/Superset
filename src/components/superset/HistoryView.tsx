@@ -36,7 +36,7 @@ export default function HistoryView() {
   if (selected) return <SessionDetail sessionId={selected} onBack={() => setSelected(null)} />;
 
   return (
-    <div className="p-3 flex flex-col gap-4">
+    <div className="p-(--page-padding) flex flex-col gap-4">
       <h2 className="display text-2xl mt-1">HISTORY</h2>
 
       {summaries.length === 0 ? (
@@ -50,7 +50,7 @@ export default function HistoryView() {
       ) : (
         months.map((m) => (
           <div key={m.label} className="flex flex-col gap-2">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground px-1">{m.label}</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground px-1">{m.label}</p>
             <ItemGroup className="gap-2">
               {m.items.map((s) => (
                 <Item key={s._id} variant="outline" asChild className="cursor-pointer active:bg-muted">
@@ -82,7 +82,7 @@ function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBac
   if (!detail) return <p className="p-6 text-sm text-muted-foreground">Session not found.</p>;
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-(--page-padding) flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="rounded-full" onClick={onBack} aria-label="Back">
           <ChevronLeft />
@@ -97,19 +97,19 @@ function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBac
         <Card key={g.exerciseName} className="gap-0 py-0 overflow-hidden">
           <CardHeader className="py-3 gap-0">
             <CardTitle className="text-sm">{g.exerciseName}</CardTitle>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{g.muscleGroup}</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">{g.muscleGroup}</p>
           </CardHeader>
           <CardContent className="px-3 pb-3">
             <div className="flex flex-col gap-1">
               {g.sets.map((s, i) => (
                 <div key={s._id} className="flex items-center gap-3 text-sm py-1 border-t border-border first:border-t-0">
-                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground w-12">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground w-12">
                     {s.isWarmup ? "Warm" : `Set ${i + 1}`}
                   </span>
                   <span className="num flex-1 font-medium">{s.weight} <span className="text-muted-foreground">×</span> {s.reps}</span>
                   {s.fatigue && (
                     <Badge variant={s.fatigue === "failure" || s.fatigue === "tooTired" ? "destructive" : "secondary"}
-                      className="text-[10px]">
+                      className="text-xs">
                       {FATIGUE_LABEL[s.fatigue]}
                     </Badge>
                   )}

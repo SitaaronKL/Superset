@@ -6,8 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Droplet, Droplets, Minus, Plus } from "lucide-react";
-
-const ACCENT = "var(--accent-user)";
+import { confirmTap } from "@/lib/confirm";
 
 export default function WaterCard() {
   const [start] = useState(() => {
@@ -29,27 +28,27 @@ export default function WaterCard() {
   const pips = Math.max(goal, count);
 
   return (
-    <Card className="rounded-3xl p-4 gap-3">
+    <Card className="p-4 gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium opacity-70">Water</span>
-        <Droplets className="size-4 opacity-50" />
+        <span className="text-sm font-medium text-muted-foreground">Water</span>
+        <Droplets className="size-4 text-muted-foreground" />
       </div>
 
       <div className="flex items-end gap-2">
-        <span className="num display text-5xl leading-none" style={reached ? { color: ACCENT } : undefined}>
+        <span className="num display text-5xl leading-none" style={reached ? { color: "var(--success)" } : undefined}>
           {count}
         </span>
-        <span className="mb-1 text-sm opacity-60">/ {goal} cups</span>
+        <span className="mb-1 text-sm text-muted-foreground">/ {goal} cups</span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {Array.from({ length: pips }).map((_, i) => (
           <Droplet
             key={i}
             className="size-5"
             style={{
-              color: i < count ? ACCENT : "var(--muted-foreground)",
-              fill: i < count ? ACCENT : "transparent",
+              color: i < count ? "var(--accent-user)" : "var(--muted-foreground)",
+              fill: i < count ? "var(--accent-user)" : "transparent",
               opacity: i < count ? 1 : 0.4,
             }}
             aria-hidden
@@ -61,13 +60,13 @@ export default function WaterCard() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => removeCup({ start })}
+          onClick={(e) => { confirmTap(e.currentTarget); void removeCup({ start }); }}
           disabled={count === 0}
           aria-label="Remove a cup"
         >
           <Minus className="size-4" />
         </Button>
-        <Button className="flex-1 gap-1.5" onClick={() => addCup()} aria-label="Add a cup">
+        <Button className="flex-1 gap-1.5" onClick={(e) => { confirmTap(e.currentTarget); void addCup(); }} aria-label="Add a cup">
           <Plus className="size-4" /> Add cup
         </Button>
       </div>

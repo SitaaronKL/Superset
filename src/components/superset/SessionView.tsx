@@ -27,6 +27,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { RestTimer } from "./RestTimer";
 import { VoiceLog } from "./VoiceLog";
 import { CardioLogger } from "./CardioLogger";
+import { confirmTap } from "@/lib/confirm";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, ArrowUpDown,
   Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search,
@@ -52,7 +53,7 @@ type FatigueId = (typeof FATIGUE)[number]["id"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RARELY_DONE_DAYS = 30;
 
-const card = "rounded-2xl bg-card ring-1 ring-foreground/10 shadow-sm";
+const card = "rounded-card bg-card ring-1 ring-foreground/10 shadow-sm";
 
 export default function SessionView() {
   const session = useQuery(api.workouts.activeSession);
@@ -84,10 +85,10 @@ function StatTile({ label, value, delta, fmt = (n: number) => String(n) }: {
   const d = delta ?? 0;
   return (
     <Card className="gap-0 py-3 px-3 items-start">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
       <span className="num display text-2xl leading-tight">{value === undefined ? "·" : fmt(value)}</span>
-      <span className="num text-[11px]" style={{ color: d > 0 ? "var(--accent-user)" : "var(--muted-foreground)" }}>
-        {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))} vs last mo
+      <span className="num text-xs text-muted-foreground whitespace-nowrap">
+        {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))} vs last
       </span>
     </Card>
   );
@@ -104,7 +105,7 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
     thisMonth && lastMonth ? thisMonth[k] - lastMonth[k] : undefined;
 
   return (
-    <div className="p-3 flex flex-col gap-3">
+    <div className="p-(--page-padding) flex flex-col gap-4">
       <h2 className="display text-3xl mt-1">{monthName}</h2>
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Workouts" value={thisMonth?.workouts} delta={delta("workouts")} />
@@ -120,8 +121,8 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
 
       {/* FAB → what kind of day */}
       <button onClick={() => setPickOpen(true)} aria-label="Start a workout"
-        className="fixed bottom-[72px] left-1/2 -translate-x-1/2 z-20 h-14 w-14 rounded-full grid place-items-center shadow-lg active:scale-95 transition-transform"
-        style={{ background: "var(--accent-user)", color: "#fff" }}>
+        className="fixed bottom-(--fab-offset) left-1/2 -translate-x-1/2 z-20 h-14 w-14 rounded-full grid place-items-center shadow-lg active:scale-95 transition-transform"
+        style={{ background: "var(--accent-user)", color: "var(--accent-foreground)" }}>
         <Plus size={26} />
       </button>
 
@@ -157,7 +158,7 @@ function DayPicker({ days, open, onOpenChange }: {
               <button onClick={() => start({ programDayId: d._id })}
                 className="flex-1 px-4 py-3 text-left flex items-center justify-between gap-3 active:bg-muted transition-colors">
                 <span className="display text-base leading-none truncate">{d.name.toUpperCase()}</span>
-                <span className="text-[11px] text-muted-foreground shrink-0">{d.exerciseIds.length} exercises</span>
+                <span className="text-xs text-muted-foreground shrink-0">{d.exerciseIds.length} exercises</span>
               </button>
               <button onClick={() => setEditing(d)} aria-label="Edit day"
                 className="px-3.5 text-muted-foreground active:bg-muted border-l border-border">
@@ -238,8 +239,8 @@ function DayEditor({ day, onClose }: { day: Doc<"programDays">; onClose: () => v
               onClick={() => rename({ id: liveDay._id, name: name.trim() })}>Save</Button>
           </div>
 
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Order = your priority</p>
-          <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Order = your priority</p>
+          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
             {ids.map((id, i) => (
               <div key={id} className="flex items-center gap-1 rounded-xl bg-muted px-3 py-2">
                 <span className="flex-1 text-sm">{byId.get(id)?.name ?? "·"}</span>
@@ -303,7 +304,7 @@ function AddExerciseDialog({ existingIds, onPick, trigger }: {
               <button key={e._id} onClick={() => { onPick(e._id); setOpen(false); setQ(""); }}
                 className="rounded-full bg-muted px-4 py-3 text-left text-sm active:bg-foreground active:text-background transition-colors flex justify-between items-center">
                 <span>{e.name}</span>
-                <span className="text-[10px] text-muted-foreground uppercase">{e.muscleGroup}</span>
+                <span className="text-xs text-muted-foreground uppercase">{e.muscleGroup}</span>
               </button>
             ))}
             {available.length === 0 && (
@@ -314,12 +315,12 @@ function AddExerciseDialog({ existingIds, onPick, trigger }: {
           </div>
 
           <div className="border-t border-border pt-3 flex flex-col gap-2 mb-2">
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Create a new exercise</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Create a new exercise</p>
             <Input value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="What's it called? (e.g. Cable Crossover)" className="h-11" />
             <div className="flex gap-2">
               <Input value={quickGroup} onChange={(e) => setQuickGroup(e.target.value)} placeholder="Muscle group (e.g. Chest)" className="h-11 flex-1" />
               <button onClick={() => setCompound(!compound)}
-                className="rounded-full px-4 text-[11px] tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
+                className="rounded-full px-4 text-xs tracking-widest whitespace-nowrap ring-1 ring-foreground/15"
                 style={compound ? { background: "var(--foreground)", color: "var(--background)" } : undefined}>
                 {compound ? "COMPOUND" : "ISOLATION"}
               </button>
@@ -387,11 +388,11 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
     setDayExercises({ id: day._id, exerciseIds: arrayMove(ids, oldIndex, newIndex) });
   };
 
-  const iconBtn = "h-9 w-9 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted";
+  const iconBtn = "h-10 w-10 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted";
 
   return (
-    <div className="p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2 sticky top-0 -mx-3 px-3 py-1.5 bg-background/90 backdrop-blur z-10">
+    <div className="p-(--page-padding) flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2 sticky top-0 -mx-(--page-padding) px-(--page-padding) py-1.5 bg-background/90 backdrop-blur z-10">
         <div className="flex items-center gap-2.5 min-w-0">
           {sets.length === 0 ? (
             <button className={iconBtn} onClick={() => discard({ sessionId: session._id })} aria-label="Back">
@@ -402,7 +403,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
               <AlertDialogTrigger asChild>
                 <button className={iconBtn} aria-label="Back"><ChevronLeft size={17} /></button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="rounded-2xl">
+              <AlertDialogContent className="rounded-card">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Leave this session?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -426,10 +427,10 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
           )}
           <h2 className="display text-2xl truncate">{(day?.name ?? "FREESTYLE").toUpperCase()}</h2>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {day && (
             <button className={iconBtn} onClick={() => setReordering((r) => !r)} aria-label="Reorder"
-              style={reordering ? { background: "var(--accent-user)", color: "#fff" } : undefined}>
+              style={reordering ? { background: "var(--accent-user)", color: "var(--accent-foreground)" } : undefined}>
               <ArrowUpDown size={16} />
             </button>
           )}
@@ -442,7 +443,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
       {reordering && day ? (
         <>
-          <p className="text-[11px] text-muted-foreground px-1 -mb-0.5">Drag to reorder. Order saves to the day.</p>
+          <p className="text-xs text-muted-foreground px-1 -mb-1">Drag to reorder. Order saves to the day.</p>
           <DndContext sensors={sensors} collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis, restrictToParentElement]} onDragEnd={onDragEnd}>
             <SortableContext items={day.exerciseIds} strategy={verticalListSortingStrategy}>
@@ -472,7 +473,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         <AddExerciseDialog existingIds={new Set(orderedIds)}
           onPick={(exId) => addToSession({ sessionId: session._id, exerciseId: exId })}
           trigger={
-            <button className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-2.5 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
+            <button className="rounded-xl border border-dashed border-muted-foreground/40 px-4 py-3 text-left text-xs text-muted-foreground flex items-center gap-2 active:bg-muted">
               <Plus size={15} /> Add an exercise
             </button>
           } />
@@ -509,8 +510,8 @@ function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (
           <Button key={f.id} type="button" size="sm"
             variant={on ? "default" : "outline"}
             onClick={() => onChange(on ? null : f.id)}
-            className="text-[11px] font-semibold tracking-wide"
-            style={on && danger ? { background: "var(--accent-user)", borderColor: "var(--accent-user)", color: "#fff" } : undefined}>
+            className="text-xs font-semibold tracking-wide"
+            style={on && danger ? { background: "var(--destructive)", borderColor: "var(--destructive)", color: "white" } : undefined}>
             {f.label}
           </Button>
         );
@@ -551,7 +552,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   if (!isActive) {
     const done = sets.length > 0;
     return (
-      <Item variant="outline" asChild className="rounded-2xl cursor-pointer active:bg-muted">
+      <Item variant="outline" asChild className="rounded-card cursor-pointer active:bg-muted">
         <button onClick={onActivate}>
           <ItemContent>
             <ItemTitle className="text-base">{exercise.name}</ItemTitle>
@@ -643,10 +644,10 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   };
 
   return (
-    <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/10 p-3 flex flex-col gap-2">
+    <div className="rounded-card bg-card shadow-sm ring-1 ring-foreground/10 p-3 flex flex-col gap-2">
       <button onClick={onActivate} className="flex justify-between items-baseline text-left">
         <span className="display text-lg leading-none">{exercise.name.toUpperCase()}</span>
-        <span className="text-[10px] text-muted-foreground">{exercise.repRangeMin}–{exercise.repRangeMax} reps</span>
+        <span className="text-xs text-muted-foreground">{exercise.repRangeMin}–{exercise.repRangeMax} reps</span>
       </button>
 
       {/* Table of sets */}
@@ -659,9 +660,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         {suggestionWarmups.map((t, i) => (
           <button key={`sw${i}`} onClick={() => logWarmupSuggestion(t)}
             className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-1.5 text-left text-muted-foreground">
-            <span className="text-[10px] font-semibold tracking-wide w-11">WARM</span>
+            <span className="text-xs font-semibold tracking-wide w-11">WARM</span>
             <span className="num flex-1 text-sm">{t.weight} <span className="text-muted-foreground">×</span> {t.reps}</span>
-            <span className="text-[10px]">tap to log</span>
+            <span className="text-xs">tap to log</span>
           </button>
         ))}
 
@@ -672,13 +673,13 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         )}
 
         {/* Active next-set row, coach recommendation + entry */}
-        <div className="rounded-lg p-2.5 flex flex-col gap-2 mt-0.5" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold tracking-widest" style={{ color: "var(--accent-user)" }}>
+        <div className="rounded-lg p-3 flex flex-col gap-2 mt-1" style={{ background: "var(--accent-tint)" }}>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold tracking-widest">
               SUPERSET COACH
             </span>
-            <span className="text-[10px] text-muted-foreground">· set {workingDone + 1}</span>
-            {adjusted && <span className="text-[10px] text-muted-foreground ml-auto">adjusted</span>}
+            <span className="text-xs text-muted-foreground">· set {workingDone + 1}</span>
+            {adjusted && <span className="text-xs text-muted-foreground ml-auto">adjusted</span>}
           </div>
 
           {/* The recommendation, explicit, tap to apply (no silent autofill) */}
@@ -686,14 +687,14 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             <button onClick={applyRec}
               className="rounded-md bg-card/70 ring-1 ring-foreground/10 px-2.5 py-2 text-left active:opacity-70">
               <div className="flex items-baseline gap-2">
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">rec</span>
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">rec</span>
                 <span className="num text-lg font-semibold">{target.weight} <span className="text-sm text-muted-foreground">× {target.reps}</span></span>
-                <span className="text-[10px] text-muted-foreground ml-auto">tap to use →</span>
+                <span className="text-xs text-muted-foreground ml-auto">tap to use →</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
             </button>
           ) : (
-            <p className="text-[11px] text-muted-foreground px-1">{recReason}</p>
+            <p className="text-xs text-muted-foreground px-1">{recReason}</p>
           )}
 
           <div className="grid grid-cols-2 gap-2">
@@ -704,10 +705,12 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
           </div>
           <EffortPills value={fatigue} onChange={setFatigue} />
           <div className="flex gap-2">
-            <Button onClick={() => submit(false)} disabled={!wVal || !rVal} className="flex-1 h-10 rounded-lg text-sm font-semibold">
+            <Button onClick={(e) => { confirmTap(e.currentTarget); void submit(false); }} disabled={!wVal || !rVal}
+              className="flex-1 h-11 rounded-lg text-sm font-semibold">
               Log set {workingDone + 1}
             </Button>
-            <Button variant="outline" onClick={() => submit(true)} disabled={!wVal || !rVal} className="h-10 rounded-lg px-3 text-sm" title="Log as warmup">
+            <Button variant="outline" onClick={(e) => { confirmTap(e.currentTarget); void submit(true); }} disabled={!wVal || !rVal}
+              className="h-11 rounded-lg px-3 text-sm" title="Log as warmup">
               Warm
             </Button>
           </div>
@@ -716,22 +719,22 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         {/* What's coming after, the ramp ahead */}
         {futureTargets.map((t, i) => (
           <div key={`ft${i}`} className="flex items-center gap-3 px-3 py-1 text-muted-foreground/60">
-            <span className="text-[10px] font-semibold tracking-wide w-11">SET {workingDone + 2 + i}</span>
+            <span className="text-xs font-semibold tracking-wide w-11">SET {workingDone + 2 + i}</span>
             <span className="num flex-1 text-sm">{t.weight > 0 ? `${t.weight} × ${t.reps}` : "·"}</span>
-            <span className="text-[10px]">planned</span>
+            <span className="text-xs">planned</span>
           </div>
         ))}
       </div>
 
       {timerStart && <RestTimer seconds={exercise.restSeconds} startedAt={timerStart} />}
       {stopNote && (
-        <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 12%, transparent)" }}>{stopNote}</p>
+        <p className="text-xs rounded-lg px-3 py-2" style={{ background: "var(--destructive-tint)" }}>{stopNote}</p>
       )}
 
       {/* Per-set note: text or voice context for the agent on this set */}
       <div className="flex flex-col gap-2 border-t border-border pt-3">
         {coachMsg && (
-          <p className="text-xs rounded-lg px-3 py-2" style={{ background: "color-mix(in oklch, var(--accent-user) 10%, transparent)" }}>{coachMsg}</p>
+          <p className="text-xs rounded-lg px-3 py-2" style={{ background: "var(--accent-tint)" }}>{coachMsg}</p>
         )}
         <div className="flex items-center gap-2">
           <Input value={note} onChange={(e) => setNote(e.target.value)}
@@ -739,7 +742,7 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
             placeholder="Note for this set (e.g. shoulder felt tweaky)" className="h-10 flex-1" />
           <button onClick={toggleMic} aria-label="Voice note"
             className="h-10 w-10 grid place-items-center rounded-full ring-1 ring-foreground/15 shrink-0"
-            style={listening ? { background: "var(--accent-user)", color: "#fff" } : undefined}>
+            style={listening ? { background: "var(--accent-user)", color: "var(--accent-foreground)" } : undefined}>
             {listening ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
           <Button className="h-10 shrink-0" disabled={!note.trim() || busy} onClick={() => sendNote(note)}>
@@ -754,12 +757,12 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 function LoggedRow({ label, set, onTap }: { label: string; set: Doc<"sets">; onTap: () => void }) {
   return (
     <button onClick={onTap} className="flex items-center gap-3 rounded-lg bg-muted px-3 py-1.5 text-left active:opacity-70">
-      <span className="text-[10px] font-semibold tracking-wide w-11 text-muted-foreground">{label}</span>
+      <span className="text-xs font-semibold tracking-wide w-11 text-muted-foreground">{label}</span>
       <span className="num flex-1 font-medium text-sm">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
       {set.fatigue && (
-        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md"
+        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-md"
           style={set.fatigue === "failure" || set.fatigue === "tooTired"
-            ? { background: "var(--accent-user)", color: "#fff" }
+            ? { background: "var(--destructive)", color: "white" }
             : { background: "var(--foreground)", color: "var(--background)" }}>
           {FATIGUE.find((f) => f.id === set.fatigue)?.label}
         </span>

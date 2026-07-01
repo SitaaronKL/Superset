@@ -1,12 +1,14 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SignIn() {
   const { signIn } = useAuthActions();
+  const router = useRouter();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,6 +29,7 @@ export default function SignIn() {
           formData.set("flow", flow);
           try {
             await signIn("password", formData);
+            router.push("/");
           } catch {
             setError(flow === "signIn" ? "Wrong email or password." : "Could not create account.");
             setBusy(false);
@@ -42,7 +45,7 @@ export default function SignIn() {
           className="h-12 display text-lg bg-white text-black hover:bg-neutral-200">
           {busy ? "..." : flow === "signIn" ? "ENTER" : "CREATE ACCOUNT"}
         </Button>
-        {error && <p className="text-sm" style={{ color: "var(--accent-user)" }}>{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <button type="button" className="mt-4 text-xs text-neutral-500 underline self-start"
           onClick={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}>
           {flow === "signIn" ? "First time? Create the account" : "Already set up? Sign in"}

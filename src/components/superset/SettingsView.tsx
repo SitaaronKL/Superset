@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Trash2, Check } from "lucide-react";
+import { confirmTap } from "@/lib/confirm";
 
 const ACCENTS: { name: string; value: string }[] = [
   { name: "Signal Red", value: "oklch(0.55 0.22 25)" },
@@ -53,27 +54,28 @@ export default function SettingsView() {
   };
 
   return (
-    <div className="p-3 flex flex-col gap-6">
+    <div className="p-(--page-padding) flex flex-col gap-6">
       <h2 className="display text-2xl mt-1">SETTINGS</h2>
 
       {/* Appearance */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">Appearance</h3>
+        <h3 className="text-xs uppercase tracking-widest text-muted-foreground">Appearance</h3>
 
         <div className="flex items-center justify-between">
           <span className="text-sm">Accent color</span>
           <Popover>
             <PopoverTrigger asChild>
-              <button className="h-8 w-8 rounded-full ring-1 ring-foreground/25 active:scale-95 transition-transform"
+              <button className="h-10 w-10 rounded-full ring-1 ring-foreground/25 active:scale-95 transition-transform"
                 style={{ background: accent }} aria-label="Choose accent color" />
             </PopoverTrigger>
             <PopoverContent align="end" className="w-auto rounded-2xl p-3">
               <div className="grid grid-cols-3 gap-3">
                 {ACCENTS.map((a) => (
-                  <button key={a.name} title={a.name} onClick={() => setSetting({ key: "accent", value: a.value })}
-                    className="h-9 w-9 rounded-full grid place-items-center ring-1 ring-foreground/15 active:scale-95"
+                  <button key={a.name} title={a.name}
+                    onClick={(e) => { confirmTap(e.currentTarget); setSetting({ key: "accent", value: a.value }); }}
+                    className="h-10 w-10 rounded-full grid place-items-center ring-1 ring-foreground/15 active:scale-95"
                     style={{ background: a.value }}>
-                    {accent === a.value && <Check size={16} className="text-white drop-shadow" />}
+                    {accent === a.value && <Check size={16} className="drop-shadow" style={{ color: "var(--accent-foreground)" }} />}
                   </button>
                 ))}
               </div>
@@ -94,7 +96,7 @@ export default function SettingsView() {
 
       {/* Daily nutrition goals */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">Daily goals</h3>
+        <h3 className="text-xs uppercase tracking-widest text-muted-foreground">Daily goals</h3>
         <label className="flex items-center justify-between gap-3">
           <span className="text-sm shrink-0">Protein (g)</span>
           <Input inputMode="numeric" placeholder="e.g. 180"
@@ -131,12 +133,12 @@ export default function SettingsView() {
 
       {/* Gym schedule */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">Gym schedule</h3>
-        <div className="grid grid-cols-7 gap-1.5">
+        <h3 className="text-xs uppercase tracking-widest text-muted-foreground">Gym schedule</h3>
+        <div className="grid grid-cols-7 gap-2">
           {DAYS.map((d, i) => (
-            <button key={d} onClick={() => toggleDay(i)}
-              className="rounded-full py-2 text-[10px] font-semibold ring-1 ring-foreground/15"
-              style={gymDays.includes(i) ? { background: "var(--accent-user)", color: "white" } : { background: "var(--muted)", color: "var(--muted-foreground)" }}>
+            <button key={d} onClick={(e) => { confirmTap(e.currentTarget); toggleDay(i); }}
+              className="rounded-full py-2.5 text-xs font-semibold ring-1 ring-foreground/15"
+              style={gymDays.includes(i) ? { background: "var(--accent-user)", color: "var(--accent-foreground)" } : { background: "var(--muted)", color: "var(--muted-foreground)" }}>
               {d.toUpperCase()}
             </button>
           ))}
@@ -149,7 +151,7 @@ export default function SettingsView() {
             onBlur={() => gymHour !== null && setSetting({ key: "gymHour", value: gymHour })}
             className="h-9 max-w-32 text-center" />
         </label>
-        <p className="text-[11px] text-muted-foreground -mt-1">The hour (0–23) you usually train. Reminders are timed before it.</p>
+        <p className="text-xs text-muted-foreground -mt-1">The hour (0-23) you usually train. Reminders are timed before it.</p>
         <Input type="email" placeholder="Email for reminders"
           value={email ?? settings.email ?? ""}
           onChange={(e) => setEmail(e.target.value)}
@@ -159,7 +161,7 @@ export default function SettingsView() {
 
       {/* Reminders (no boxes, hours, customizable) */}
       <section className="flex flex-col gap-1">
-        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Reminders</h3>
+        <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Reminders</h3>
         {nudges?.map((n) => (
           <NudgeRow key={n._id} nudge={n}
             onSave={(p) => upsertNudge({ id: n._id, kind: n.kind, label: p.label, minutesBeforeGym: p.minutes, enabled: p.enabled })}
@@ -173,7 +175,7 @@ export default function SettingsView() {
 
       {memories && memories.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">What the coach knows about you</h3>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground">What the coach knows about you</h3>
           {memories.map((m) => (
             <div key={m._id} className="flex items-start gap-2 text-xs border-b border-border pb-1">
               <span className="flex-1">{m.fact}</span>
@@ -206,8 +208,8 @@ function NudgeRow({ nudge, onSave, onDelete }: {
         className="h-8 flex-1 border-transparent bg-transparent px-1 focus-visible:bg-input/50" />
       <div className="flex items-center gap-1 shrink-0">
         <Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} onBlur={() => commit()}
-          className="h-8 w-14 text-center num" />
-        <span className="text-[11px] text-muted-foreground">h before</span>
+          className="h-9 w-14 text-center num" />
+        <span className="text-xs text-muted-foreground">h before</span>
       </div>
       <button onClick={onDelete} aria-label="Delete reminder" className="text-muted-foreground p-1"><Trash2 size={14} /></button>
     </div>

@@ -100,24 +100,24 @@ export function VoiceLog({ sessionId, nextIndexFor }: {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button aria-label="Voice log"
-          className="h-9 w-9 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted">
+          className="h-10 w-10 grid place-items-center rounded-full ring-1 ring-foreground/15 active:bg-muted">
           <Mic size={17} />
         </button>
       </DialogTrigger>
-      <DialogContent className="border-2 border-foreground rounded-none max-w-md">
+      <DialogContent className="rounded-card max-w-md">
         <DialogHeader>
           <DialogTitle className="display text-2xl">SPEAK YOUR SETS</DialogTitle>
         </DialogHeader>
         <Button onClick={toggleMic} variant={listening ? "default" : "outline"}
-          className="h-14 rounded-none border-2 border-foreground gap-2"
-          style={listening ? { background: "var(--accent-user)" } : undefined}>
+          className="h-14 gap-2"
+          style={listening ? { background: "var(--accent-user)", color: "var(--accent-foreground)" } : undefined}>
           {listening ? <MicOff /> : <Mic />} {listening ? "STOP" : "START TALKING"}
         </Button>
         <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)}
           placeholder={'e.g. "skullcrushers 40 for 10 easy, then 50 for 8, last one was brutal"'}
-          className="rounded-none border-2 border-foreground min-h-24" />
+          className="min-h-24" />
         {!parsed ? (
-          <Button onClick={parse} disabled={!transcript || busy} className="rounded-none h-12">
+          <Button onClick={parse} disabled={!transcript || busy} className="h-12">
             {busy ? "PARSING..." : "PARSE"}
           </Button>
         ) : (
@@ -132,12 +132,12 @@ export function VoiceLog({ sessionId, nextIndexFor }: {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-none border-2" onClick={() => setParsed(null)}>FIX IT</Button>
-              <Button className="rounded-none" onClick={confirm} disabled={busy}>SAVE ALL</Button>
+              <Button variant="outline" onClick={() => setParsed(null)}>FIX IT</Button>
+              <Button onClick={confirm} disabled={busy}>SAVE ALL</Button>
             </div>
           </div>
         )}
-        {error && <p className="text-xs" style={{ color: "var(--accent-user)" }}>{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </DialogContent>
     </Dialog>
   );

@@ -51,11 +51,11 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col max-w-md mx-auto w-full">
       <AccentSync />
-      <header className="flex items-end justify-between border-b border-foreground/80 px-3 pt-3 pb-2">
+      <header className="flex items-end justify-between border-b border-foreground/80 px-(--page-padding) pt-3 pb-2">
         <h1 className="display text-2xl leading-none">
           SUPER<span style={{ color: "var(--accent-user)" }}>SET</span>
         </h1>
-        <div className="text-right text-[11px] text-muted-foreground">
+        <div className="text-right text-xs text-muted-foreground">
           <span className="display text-base text-foreground">{dayStreak ?? 0}</span> day stk
         </div>
       </header>
@@ -75,9 +75,9 @@ export default function Home() {
               const active = tab === "coach";
               return (
                 <button key={id} onClick={() => setTab("coach")}
-                  className="flex flex-col items-center gap-1 py-2 text-[9px] uppercase tracking-widest">
+                  className="flex flex-col items-center gap-1 py-2 text-xs uppercase tracking-wide">
                   <span className="h-9 w-9 grid place-items-center rounded-full -mt-3 shadow-md ring-2 ring-background"
-                    style={{ background: "var(--accent-user)", color: "#fff", opacity: active ? 1 : 0.85 }}>
+                    style={{ background: "var(--accent-user)", color: "var(--accent-foreground)", opacity: active ? 1 : 0.85 }}>
                     <MessageCircle size={18} />
                   </span>
                   <span style={active ? { color: "var(--accent-user)" } : undefined}>{label}</span>
@@ -86,7 +86,7 @@ export default function Home() {
             }
             return (
               <button key={id} onClick={() => setTab(id)}
-                className="flex flex-col items-center gap-1 py-2 text-[9px] uppercase tracking-widest"
+                className="flex flex-col items-center gap-1 py-2 text-xs uppercase tracking-wide"
                 style={tab === id ? { color: "var(--accent-user)" } : undefined}>
                 {Icon ? <LoopIcon Comp={Icon} size={20} delay={i * 500} /> : <Apple size={20} strokeWidth={1.6} />}
                 {label}

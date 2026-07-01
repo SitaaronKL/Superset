@@ -8,8 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,6 +45,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-card: var(--radius);
+  --color-success: var(--success);
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --text-xs--line-height: 1.4;
+  --text-sm--line-height: 1.5;
 }
 
 :root {
@@ -72,7 +77,6 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -129,7 +133,7 @@
   }
 }
 /* ---- Superset theme: pure black & white + one user-chosen accent ---- */
-/* The accent is set at runtime from settings (see AccentProvider). */
+/* The accent is set at runtime from settings (see AccentSync). */
 :root {
   --radius: 1.35rem; /* Apple-style large corner radius */
   --background: oklch(1 0 0);
@@ -144,21 +148,33 @@
   --muted-foreground: oklch(0.42 0 0);
   --ring: var(--accent-user);
   --accent: var(--accent-user);
+  /* Recomputed at runtime by AccentSync from the accent's lightness. */
   --accent-foreground: oklch(1 0 0);
   --accent-user: oklch(0.55 0.22 25); /* default: signal red */
+  --success: oklch(0.55 0.17 150);
+  --accent-tint: color-mix(in oklch, var(--accent-user) 12%, transparent);
+  --accent-tint-strong: color-mix(in oklch, var(--accent-user) 18%, transparent);
+  --destructive-tint: color-mix(in oklch, var(--destructive) 12%, transparent);
+  --hairline: oklch(0 0 0 / 12%);
+  --page-padding: 1rem;
+  --fab-offset: 4.5rem;
 }
 
 .dark {
-  --background: oklch(0 0 0);
+  /* Not a pure inversion: bg sits just off black and cards lift above it so
+     elevation still reads on OLED. */
+  --background: oklch(0.02 0 0);
   --foreground: oklch(1 0 0);
-  --card: oklch(0.11 0 0);
+  --card: oklch(0.16 0 0);
   --card-foreground: oklch(1 0 0);
-  --border: oklch(1 0 0 / 14%);
+  --border: oklch(1 0 0 / 20%);
   --input: oklch(0.2 0 0);
   --primary: oklch(1 0 0);
   --primary-foreground: oklch(0 0 0);
   --muted: oklch(0.14 0 0);
   --muted-foreground: oklch(0.65 0 0);
+  --success: oklch(0.72 0.17 150);
+  --hairline: oklch(1 0 0 / 20%);
 }
 
 @theme inline {
@@ -182,4 +198,5 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  line-height: 1.5;
 }

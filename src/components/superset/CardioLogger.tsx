@@ -21,8 +21,8 @@ function SweatBadge({ sweat }: { sweat?: Sweat }) {
   return (
     <Badge
       variant="secondary"
-      className="text-[9px] uppercase tracking-widest shrink-0"
-      style={{ backgroundColor: "var(--accent-user)", color: "white", border: "none" }}
+      className="text-xs uppercase tracking-widest shrink-0"
+      style={{ backgroundColor: "var(--accent-user)", color: "var(--accent-foreground)", border: "none" }}
     >
       {sweat}
     </Badge>
@@ -56,7 +56,7 @@ function Row({ c, onDelete }: { c: CardioRow; onDelete?: () => void }) {
           <SweatBadge sweat={c.sweat} />
         </div>
         {(stats || c.description) && (
-          <span className="num text-[11px] text-muted-foreground truncate">
+          <span className="num text-xs text-muted-foreground truncate">
             {stats}
             {stats && c.description ? " · " : ""}
             {c.description ? <span className="font-sans">{c.description}</span> : null}
@@ -85,7 +85,7 @@ export function CardioLogger({ sessionId }: { sessionId: Id<"sessions"> }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between px-1">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Cardio</p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Cardio</p>
         <AddCardioDrawer sessionId={sessionId} />
       </div>
 
@@ -107,7 +107,7 @@ export function CardioSummary({ sessionId }: { sessionId: Id<"sessions"> }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[11px] uppercase tracking-widest text-muted-foreground px-1">Cardio</p>
+      <p className="text-xs uppercase tracking-widest text-muted-foreground px-1">Cardio</p>
       <div className="flex flex-col gap-2">
         {cardio.map((c) => (
           <Row key={c._id} c={c} />
@@ -156,7 +156,7 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
   return (
     <Drawer open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DrawerTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5 h-8">
+        <Button size="sm" variant="outline" className="gap-2">
           <Plus size={14} /> Add cardio
         </Button>
       </DrawerTrigger>
@@ -168,8 +168,8 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
         <div className="flex flex-col gap-3">
           {/* Type quick-pick */}
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Type</span>
-            <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Type</span>
+            <div className="flex flex-wrap gap-2">
               {QUICK_TYPES.map((qt) => {
                 const active = !other && type === qt;
                 return (
@@ -177,8 +177,8 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
                     key={qt}
                     type="button"
                     onClick={() => { setType(qt); setOther(false); }}
-                    className="rounded-full border px-3 py-1.5 text-sm active:scale-95 transition"
-                    style={active ? { backgroundColor: "var(--accent-user)", color: "white", borderColor: "transparent" } : undefined}
+                    className="rounded-full border px-3 py-2 text-sm active:scale-95 transition"
+                    style={active ? { backgroundColor: "var(--accent-user)", color: "var(--accent-foreground)", borderColor: "transparent" } : undefined}
                   >
                     {qt}
                   </button>
@@ -187,8 +187,8 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
               <button
                 type="button"
                 onClick={() => { setOther(true); setType(""); }}
-                className="rounded-full border px-3 py-1.5 text-sm active:scale-95 transition"
-                style={other ? { backgroundColor: "var(--accent-user)", color: "white", borderColor: "transparent" } : undefined}
+                className="rounded-full border px-3 py-2 text-sm active:scale-95 transition"
+                style={other ? { backgroundColor: "var(--accent-user)", color: "var(--accent-foreground)", borderColor: "transparent" } : undefined}
               >
                 Other
               </button>
@@ -224,7 +224,7 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
 
           {/* Sweat */}
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sweat</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">Sweat</span>
             <ButtonGroup className="w-full">
               {SWEATS.map((s) => {
                 const active = sweat === s;
@@ -233,9 +233,9 @@ function AddCardioDrawer({ sessionId }: { sessionId: Id<"sessions"> }) {
                     key={s}
                     type="button"
                     variant={active ? "default" : "outline"}
-                    className="flex-1 text-[11px] uppercase tracking-widest"
+                    className="flex-1 text-xs uppercase tracking-widest"
                     onClick={() => setSweat(active ? undefined : s)}
-                    style={active ? { backgroundColor: "var(--accent-user)", color: "white", borderColor: "transparent" } : undefined}
+                    style={active ? { backgroundColor: "var(--accent-user)", color: "var(--accent-foreground)", borderColor: "transparent" } : undefined}
                   >
                     {s}
                   </Button>

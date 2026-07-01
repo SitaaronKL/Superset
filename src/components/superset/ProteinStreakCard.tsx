@@ -50,22 +50,22 @@ export default function ProteinStreakCard() {
   }, [byDay, todayKey]);
 
   return (
-    <Card className="gap-2 p-3">
+    <Card className="gap-2 p-4">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5">
-          <Flame size={18} style={{ color: streak > 0 ? "var(--accent-user)" : "var(--muted-foreground)" }} />
+        <span className="flex items-center gap-2">
+          <Flame size={18} style={{ color: streak > 0 ? "var(--success)" : "var(--muted-foreground)" }} />
           <span className="num display text-xl">{streak}</span>
           <span className="text-xs text-muted-foreground">day protein streak</span>
         </span>
-        {!proteinGoal && <span className="text-[10px] text-muted-foreground">set a protein goal</span>}
+        {!proteinGoal && <span className="text-xs text-muted-foreground">set a protein goal</span>}
       </div>
       {avg && (
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1">
             <span className="num text-base font-semibold">{avg.pro}</span>
             <span className="text-muted-foreground">g protein / day (7d)</span>
           </div>
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1">
             <span className="num text-base font-semibold">{avg.cal}</span>
             <span className="text-muted-foreground">cal / day (7d)</span>
           </div>

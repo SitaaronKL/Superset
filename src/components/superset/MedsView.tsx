@@ -25,24 +25,24 @@ export default function MedsView() {
       {meds?.map((m) => <MedCard key={m._id} med={m} />)}
 
       {!adding ? (
-        <Button variant="outline" className="rounded-none border-2 border-foreground" onClick={() => setAdding(true)}>
+        <Button variant="outline" onClick={() => setAdding(true)}>
           + ADD MEDICATION
         </Button>
       ) : (
-        <div className="border-2 border-foreground p-3 flex flex-col gap-2">
+        <div className="rounded-card bg-card ring-1 ring-foreground/10 p-3 flex flex-col gap-2">
           <Input placeholder="name (e.g. Semaglutide)" value={name} onChange={(e) => setName(e.target.value)}
-            className="rounded-none border-2 border-foreground" />
+            className="h-11" />
           <div className="grid grid-cols-4 gap-1">
             {["glp1", "peptide", "supplement", "other"].map((k) => (
-              <button key={k} onClick={() => setKind(k)} className="border-2 border-foreground py-1.5 text-[10px] uppercase"
-                style={kind === k ? { background: "var(--accent-user)", borderColor: "var(--accent-user)", color: "white" } : undefined}>
+              <button key={k} onClick={() => setKind(k)} className="rounded-full ring-1 ring-foreground/15 py-2 text-xs uppercase"
+                style={kind === k ? { background: "var(--accent-user)", color: "var(--accent-foreground)" } : undefined}>
                 {k}
               </button>
             ))}
           </div>
           <Input placeholder="protocol (e.g. 0.5mg weekly, Sunday AM)" value={protocol} onChange={(e) => setProtocol(e.target.value)}
-            className="rounded-none border-2 border-foreground" />
-          <Button className="rounded-none" disabled={!name || !protocol}
+            className="h-11" />
+          <Button disabled={!name || !protocol}
             onClick={async () => { await add({ name, kind, protocol }); setAdding(false); setName(""); setProtocol(""); }}>
             SAVE
           </Button>
@@ -61,10 +61,10 @@ function MedCard({ med }: { med: Doc<"medications"> }) {
   const last = logs?.[0];
 
   return (
-    <div className="border-2 border-foreground p-4 flex flex-col gap-2">
+    <div className="rounded-card bg-card ring-1 ring-foreground/10 p-4 flex flex-col gap-2">
       <div className="flex justify-between items-baseline">
         <span className="display text-xl">{med.name.toUpperCase()}</span>
-        <span className="text-[10px] uppercase text-muted-foreground">{med.kind}</span>
+        <span className="text-xs uppercase text-muted-foreground">{med.kind}</span>
       </div>
       <p className="text-xs text-muted-foreground">{med.protocol}</p>
       {last && (
@@ -75,11 +75,11 @@ function MedCard({ med }: { med: Doc<"medications"> }) {
       )}
       <div className="grid grid-cols-2 gap-2">
         <Input placeholder="dose taken" value={dose} onChange={(e) => setDose(e.target.value)}
-          className="rounded-none border-2 border-foreground" />
+          className="h-11" />
         <Input placeholder="site (e.g. L abdomen)" value={site} onChange={(e) => setSite(e.target.value)}
-          className="rounded-none border-2 border-foreground" />
+          className="h-11" />
       </div>
-      <Button className="rounded-none" disabled={!dose}
+      <Button disabled={!dose}
         onClick={async () => { await logDose({ medicationId: med._id, dose, site: site || undefined }); setDose(""); setSite(""); }}>
         LOG DOSE
       </Button>

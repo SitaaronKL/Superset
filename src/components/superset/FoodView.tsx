@@ -17,16 +17,21 @@ import NetCaloriesCard from "./NetCaloriesCard";
 import ProteinStreakCard from "./ProteinStreakCard";
 import WaterCard from "./WaterCard";
 
-function GoalBar({ label, value, goal, unit }: { label: string; value: number; goal: number; unit: string }) {
+function GoalBar({ label, value, goal, unit, moreIsGood }: {
+  label: string; value: number; goal: number; unit: string; moreIsGood?: boolean;
+}) {
   const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  const met = goal > 0 && value >= goal;
+  // Hitting a protein goal is a win; blowing past a calorie budget is not.
+  const fill = met ? (moreIsGood ? "var(--success)" : "var(--destructive)") : "var(--accent-user)";
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between text-xs">
-        <span className="uppercase tracking-widest text-muted-foreground text-[10px]">{label}</span>
+        <span className="uppercase tracking-widest text-muted-foreground">{label}</span>
         <span className="num">{value}{goal > 0 ? ` / ${goal}` : ""} {unit}</span>
       </div>
       <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: "var(--accent-user)" }} />
+        <div className="h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${pct}%`, background: fill }} />
       </div>
     </div>
   );
@@ -68,17 +73,17 @@ export default function FoodView() {
   }, [logs]);
 
   return (
-    <div className="p-3 flex flex-col gap-4">
+    <div className="p-(--page-padding) flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="display text-2xl mt-1">FOOD</h2>
         <AddFoodDrawer />
       </div>
 
-      <Card className="gap-3 p-3">
-        <GoalBar label="Protein today" value={today.pro} goal={proteinGoal} unit="g" />
+      <Card className="gap-3 p-4">
+        <GoalBar label="Protein today" value={today.pro} goal={proteinGoal} unit="g" moreIsGood />
         <GoalBar label="Calories today" value={today.cal} goal={calorieGoal} unit="cal" />
         {proteinGoal === 0 && calorieGoal === 0 && (
-          <p className="text-[11px] text-muted-foreground">Set daily goals in Settings to track progress.</p>
+          <p className="text-xs text-muted-foreground">Set daily goals in Settings to track progress.</p>
         )}
       </Card>
 
@@ -105,12 +110,12 @@ export default function FoodView() {
         days.map((day) => (
           <div key={day.label} className="flex flex-col gap-2">
             <div className="flex items-center justify-between px-1">
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{day.label}</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">{day.label}</p>
               {(() => {
                 const cal = day.items.reduce((s, l) => s + (l.calories ?? 0), 0);
                 const pro = day.items.reduce((s, l) => s + (l.protein ?? 0), 0);
                 return cal > 0 || pro > 0 ? (
-                  <p className="num text-[11px] text-muted-foreground">{cal} cal · {pro}g protein</p>
+                  <p className="num text-xs text-muted-foreground">{cal} cal · {pro}g protein</p>
                 ) : null;
               })()}
             </div>
@@ -124,16 +129,16 @@ export default function FoodView() {
                   <div className="p-2 flex flex-col gap-0.5">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-sm font-medium truncate">{l.name || "Logged"}</span>
-                      {l.backUrl && <Badge variant="secondary" className="text-[9px] shrink-0">label</Badge>}
+                      {l.backUrl && <Badge variant="secondary" className="text-xs shrink-0">label</Badge>}
                     </div>
                     {(l.calories || l.protein) ? (
-                      <span className="num text-[10px] text-muted-foreground">{l.calories ?? 0} cal · {l.protein ?? 0}g</span>
+                      <span className="num text-xs text-muted-foreground">{l.calories ?? 0} cal · {l.protein ?? 0}g</span>
                     ) : null}
-                    <span className="num text-[10px] text-muted-foreground">{timeLabel(l.loggedAt)}</span>
+                    <span className="num text-xs text-muted-foreground">{timeLabel(l.loggedAt)}</span>
                   </div>
                   <button onClick={() => del({ id: l._id })} aria-label="Delete"
-                    className="absolute top-1.5 right-1.5 h-7 w-7 grid place-items-center rounded-full bg-black/45 text-white backdrop-blur active:scale-90">
-                    <Trash2 size={13} />
+                    className="absolute top-1.5 right-1.5 h-9 w-9 grid place-items-center rounded-full bg-black/45 text-white backdrop-blur active:scale-90">
+                    <Trash2 size={15} />
                   </button>
                 </Card>
               ))}
@@ -150,7 +155,7 @@ function PhotoPicker({ label, file, onPick }: { label: string; file: File | null
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
       <button type="button" onClick={() => ref.current?.click()}
         className="relative aspect-square rounded-2xl border border-dashed border-muted-foreground/40 overflow-hidden grid place-items-center active:bg-muted">
         {preview ? (
@@ -160,9 +165,9 @@ function PhotoPicker({ label, file, onPick }: { label: string; file: File | null
           <Camera size={22} className="text-muted-foreground" />
         )}
         {preview && (
-          <span onClick={(e) => { e.stopPropagation(); onPick(null); }}
-            className="absolute top-1.5 right-1.5 h-6 w-6 grid place-items-center rounded-full bg-black/45 text-white">
-            <X size={12} />
+          <span onClick={(e) => { e.stopPropagation(); onPick(null); }} role="button" aria-label="Remove photo"
+            className="absolute top-1.5 right-1.5 h-9 w-9 grid place-items-center rounded-full bg-black/45 text-white">
+            <X size={14} />
           </span>
         )}
       </button>
@@ -182,6 +187,7 @@ function AddFoodDrawer() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   const upload = async (file: File): Promise<Id<"_storage">> => {
     const url = await generateUploadUrl();
@@ -193,6 +199,7 @@ function AddFoodDrawer() {
   const submit = async () => {
     if (!itemFile) return;
     setBusy(true);
+    setError(null);
     try {
       setStage("Uploading…");
       const itemImage = await upload(itemFile);
@@ -207,6 +214,8 @@ function AddFoodDrawer() {
         summary: a.summary || undefined,
       });
       setItemFile(null); setBackFile(null); setName(""); setOpen(false);
+    } catch {
+      setError("Couldn't read that photo. Try again, or type a name and save without analysis.");
     } finally {
       setBusy(false); setStage("");
     }
@@ -229,7 +238,8 @@ function AddFoodDrawer() {
           <Button className="h-11" disabled={!itemFile || busy} onClick={submit}>
             {busy ? (stage || "Saving…") : "Save to today"}
           </Button>
-          <p className="text-[11px] text-muted-foreground text-center -mt-1">The coach reads your photos to name it and pull calories + protein.</p>
+          {error && <p className="text-xs text-destructive text-center">{error}</p>}
+          <p className="text-xs text-muted-foreground text-center -mt-1">The coach reads your photos to name it and pull calories + protein.</p>
         </div>
       </DrawerContent>
     </Drawer>

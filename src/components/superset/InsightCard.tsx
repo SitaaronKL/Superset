@@ -32,17 +32,17 @@ export default function InsightCard() {
   }, []);
 
   return (
-    <Card className="gap-2 p-3">
+    <Card className="gap-2 p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest flex items-center gap-1.5" style={{ color: "var(--accent-user)" }}>
-          <Sparkle size={12} /> Coach insight
+        <span className="text-xs uppercase tracking-widest font-semibold flex items-center gap-2">
+          <Sparkle size={12} style={{ color: "var(--accent-user)" }} /> Coach insight
         </span>
         <button onClick={() => void fetchInsight()} disabled={loading} aria-label="Refresh insight"
-          className="text-muted-foreground p-1 disabled:opacity-40">
+          className="text-muted-foreground p-2 -m-1 disabled:opacity-40">
           <RotateCw size={14} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
-      <p className="text-sm leading-snug">
+      <p className="text-sm leading-normal">
         {loading && text === null ? "Reading your day…" : text ?? "…"}
       </p>
     </Card>

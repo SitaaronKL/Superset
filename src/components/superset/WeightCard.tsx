@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/empty";
 import { Scale, Trash2 } from "lucide-react";
 
-const ACCENT = "var(--accent-user)";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const fmtDelta = (n: number) => (n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1));
@@ -58,13 +57,13 @@ function Sparkline({ entries }: { entries: Entry[] }) {
       <polyline
         points={coords.join(" ")}
         fill="none"
-        stroke={ACCENT}
+        stroke="var(--accent-user)"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
-      <circle cx={last[0]} cy={last[1]} r={2.5} fill={ACCENT} />
+      <circle cx={last[0]} cy={last[1]} r={2.5} fill="var(--accent-user)" />
     </svg>
   );
 }
@@ -127,14 +126,14 @@ export default function WeightCard() {
   };
 
   return (
-    <Card className="rounded-3xl p-4 gap-3">
+    <Card className="p-4 gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium opacity-70">Body weight</span>
-        <Scale className="size-4 opacity-50" />
+        <span className="text-sm font-medium text-muted-foreground">Body weight</span>
+        <Scale className="size-4 text-muted-foreground" />
       </div>
 
       {weights === undefined ? (
-        <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       ) : weights.length === 0 ? (
         <Empty className="py-6">
           <EmptyHeader>
@@ -151,7 +150,7 @@ export default function WeightCard() {
             <span className="num display text-5xl leading-none">
               {latest!.weight.toFixed(1)}
             </span>
-            <span className="mb-1 text-sm opacity-60">lb</span>
+            <span className="mb-1 text-sm text-muted-foreground">lb</span>
           </div>
 
           {(deltaLast !== undefined || deltaWeek !== undefined) && (
@@ -171,7 +170,7 @@ export default function WeightCard() {
 
           <Sparkline entries={weights} />
 
-          <div className="flex items-center justify-between text-[11px] opacity-50">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{dateLabel(weights[weights.length - 1].loggedAt)}</span>
             <span>{dateLabel(latest!.loggedAt)}</span>
           </div>
@@ -179,11 +178,11 @@ export default function WeightCard() {
           {goalProgress && (
             <div className="flex flex-col gap-1 pt-1">
               <div className="flex items-baseline justify-between text-xs">
-                <span className="uppercase tracking-widest text-muted-foreground text-[10px]">Goal {goal} lb</span>
+                <span className="uppercase tracking-widest text-muted-foreground">Goal {goal} lb</span>
                 <span className="num">{goalProgress.reached ? "reached" : `${goalProgress.toGo.toFixed(1)} lb to go`}</span>
               </div>
               <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full transition-[width]" style={{ width: `${goalProgress.pct}%`, background: "var(--accent-user)" }} />
+                <div className="h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${goalProgress.pct}%`, background: "var(--accent-user)" }} />
               </div>
             </div>
           )}
@@ -206,7 +205,7 @@ export default function WeightCard() {
       </div>
 
       {weights && weights.length > 0 && (
-        <div className="flex items-center justify-between text-xs opacity-60">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="num">
             Last: {latest!.weight.toFixed(1)} lb on {dateLabel(latest!.loggedAt)}
           </span>
