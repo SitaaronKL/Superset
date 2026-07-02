@@ -158,6 +158,7 @@
   --hairline: oklch(0 0 0 / 12%);
   --page-padding: 1rem;
   --fab-offset: 4.5rem;
+  --app-header-h: 45px;
   /* Viewport minus the app header (3.5rem) and bottom nav (4rem). */
   --chat-height: calc(100dvh - 7.5rem);
 }
@@ -194,6 +195,53 @@
 .num {
   font-family: var(--font-mono), monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* Chrome-only glass: header, tab bar, docks. Never on content tables. */
+.glass {
+  background: color-mix(in oklch, var(--background) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: var(--background);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* One entrance used everywhere a surface appears: rise + settle. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* No fill mode: once finished the element returns to natural style, so the
+   lingering transform can't become a containing block for fixed children
+   (the FABs and the rest dock live inside animated tab wrappers). */
+.rise-in {
+  animation: rise-in 0.28s var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {

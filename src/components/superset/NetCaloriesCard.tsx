@@ -40,16 +40,44 @@ export default function NetCaloriesCard() {
     <StatCard label="Calories in vs out" icon={<Flame />}>
       {loading ? (
         <div className="h-24 animate-pulse rounded-lg bg-muted" />
+      ) : goal > 0 ? (
+        <>
+          {/* The derived budget is the hero; the arithmetic stays visible so
+              the number is never a mystery. */}
+          <div className="flex items-end gap-2">
+            <span className="num display text-6xl leading-none"
+              style={{ color: remaining >= 0 ? "var(--accent-user)" : "var(--destructive)" }}>
+              {Math.abs(remaining)}
+            </span>
+            <span className="mb-1 text-sm text-muted-foreground">
+              kcal {remaining >= 0 ? "left today" : "over today"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col rounded-lg bg-muted/50 px-3 py-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Goal</span>
+              <span className="num text-lg leading-tight">{goal}</span>
+            </div>
+            <div className="flex flex-col rounded-lg bg-muted/50 px-3 py-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">− Food</span>
+              <span className="num text-lg leading-tight">{inCals}</span>
+            </div>
+            <div className="flex flex-col rounded-lg bg-muted/50 px-3 py-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">+ Burn</span>
+              <span className="num text-lg leading-tight">{outCals}</span>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           <div className="flex items-end gap-2">
-            <span className="num display text-5xl leading-none" style={{ color: "var(--accent-user)" }}>
+            <span className="num display text-6xl leading-none" style={{ color: "var(--accent-user)" }}>
               {net > 0 ? "+" : ""}
               {net}
             </span>
             <span className="mb-1 text-sm text-muted-foreground">net kcal</span>
           </div>
-
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col rounded-lg bg-muted/50 px-3 py-2">
               <span className="text-xs uppercase tracking-widest text-muted-foreground">In</span>
@@ -60,17 +88,7 @@ export default function NetCaloriesCard() {
               <span className="num text-lg leading-tight">{outCals}</span>
             </div>
           </div>
-
-          {goal > 0 && (
-            <div className="flex items-baseline justify-between text-xs pt-1">
-              <span className="uppercase tracking-widest text-muted-foreground">
-                Goal {goal} kcal
-              </span>
-              <span className="num">
-                {remaining >= 0 ? `${remaining} left` : `${Math.abs(remaining)} over`}
-              </span>
-            </div>
-          )}
+          <p className="text-xs text-muted-foreground">Set a calorie goal in Settings to see what you have left.</p>
         </>
       )}
     </StatCard>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { StatCard } from "./StatCard";
+import { WeekDots } from "./WeekDots";
 import { Flame } from "lucide-react";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -61,18 +62,20 @@ export default function ProteinStreakCard() {
       </div>
       {!proteinGoal ? (
         <p className="text-xs text-muted-foreground">Set a protein goal in Settings to start a streak.</p>
-      ) : avg ? (
-        <div className="flex flex-col gap-1 text-xs">
-          <div className="flex items-baseline justify-between">
-            <span className="text-muted-foreground">protein / day (7d)</span>
-            <span className="num font-semibold">{avg.pro}g</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-muted-foreground">cal / day (7d)</span>
-            <span className="num font-semibold">{avg.cal}</span>
-          </div>
-        </div>
-      ) : null}
+      ) : (
+        <>
+          <WeekDots size={22}
+            hits={Array.from({ length: 7 }, (_, i) => (byDay.get(todayKey - (6 - i) * DAY)?.pro ?? 0) >= proteinGoal)} />
+          {avg && (
+            <div className="flex flex-col gap-1 text-xs">
+              <div className="flex items-baseline justify-between">
+                <span className="text-muted-foreground">protein / day (7d)</span>
+                <span className="num font-semibold">{avg.pro}g</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </StatCard>
   );
 }

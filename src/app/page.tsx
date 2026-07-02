@@ -19,17 +19,13 @@ type AnimatedIcon = React.ForwardRefExoticComponent<
   { size?: number } & React.RefAttributes<AnimatedIconHandle>
 >;
 
-// Replays the icon's draw-on animation on a loop so the nav is always alive.
-function LoopIcon({ Comp, size, delay }: { Comp: AnimatedIcon; size: number; delay: number }) {
+// Motion communicates causality: the icon draws itself when its tab becomes
+// active, never on an ambient timer.
+function TabIcon({ Comp, size, active }: { Comp: AnimatedIcon; size: number; active: boolean }) {
   const ref = useRef<AnimatedIconHandle>(null);
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const t = setTimeout(() => {
-      ref.current?.startAnimation();
-      interval = setInterval(() => ref.current?.startAnimation(), 3200);
-    }, delay);
-    return () => { clearTimeout(t); if (interval) clearInterval(interval); };
-  }, [delay]);
+    if (active) ref.current?.startAnimation();
+  }, [active]);
   return <Comp ref={ref} size={size} />;
 }
 
@@ -51,7 +47,7 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col max-w-md mx-auto w-full">
       <AccentSync />
-      <header className="flex items-end justify-between border-b border-foreground/80 px-(--page-padding) pt-3 pb-2">
+      <header className="glass sticky top-0 z-30 flex items-end justify-between border-b border-foreground/80 px-(--page-padding) pt-3 pb-2">
         <h1 className="display text-2xl leading-none">
           SUPER<span style={{ color: "var(--accent-user)" }}>SET</span>
         </h1>
@@ -61,16 +57,18 @@ export default function Home() {
       </header>
 
       <main className="flex-1 overflow-y-auto pb-20">
-        {tab === "train" && <SessionView />}
-        {tab === "history" && <HistoryView />}
-        {tab === "coach" && <CoachView />}
-        {tab === "food" && <FoodView />}
-        {tab === "settings" && <SettingsView />}
+        <div key={tab} className="rise-in">
+          {tab === "train" && <SessionView />}
+          {tab === "history" && <HistoryView />}
+          {tab === "coach" && <CoachView />}
+          {tab === "food" && <FoodView />}
+          {tab === "settings" && <SettingsView />}
+        </div>
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md border-t border-foreground/80 bg-background pb-[env(safe-area-inset-bottom)]">
+      <nav className="glass fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md border-t border-foreground/80 pb-[env(safe-area-inset-bottom)] z-30">
         <div className="grid grid-cols-5">
-          {TABS.map(({ id, label, icon: Icon }, i) => {
+          {TABS.map(({ id, label, icon: Icon }) => {
             if (id === "coach") {
               const active = tab === "coach";
               return (
@@ -88,7 +86,7 @@ export default function Home() {
               <button key={id} onClick={() => setTab(id)}
                 className="flex flex-col items-center gap-1 py-2 text-xs uppercase tracking-wide"
                 style={tab === id ? { color: "var(--accent-user)" } : undefined}>
-                {Icon ? <LoopIcon Comp={Icon} size={20} delay={i * 500} /> : <Utensils size={20} strokeWidth={1.6} />}
+                {Icon ? <TabIcon Comp={Icon} size={20} active={tab === id} /> : <Utensils size={20} strokeWidth={1.6} />}
                 {label}
               </button>
             );

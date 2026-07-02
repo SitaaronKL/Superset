@@ -42,6 +42,13 @@ export default function HistoryView() {
     <div className="p-(--page-padding) flex flex-col gap-4">
       <h2 className="display text-2xl mt-1">HISTORY</h2>
 
+      {summaries.length > 0 && (
+        <div className="flex items-end gap-2 pb-1">
+          <span className="num display text-6xl leading-none">{summaries.length}</span>
+          <span className="mb-1 text-sm text-muted-foreground">sessions since day one</span>
+        </div>
+      )}
+
       {summaries.length === 0 ? (
         <Empty className="mt-10">
           <EmptyHeader>
@@ -178,7 +185,8 @@ function ExerciseTrendDrawer({ trend, onClose }: {
                 <p className="text-xs text-muted-foreground">best est. 1RM</p>
               </div>
             </div>
-            <Sparkline values={data.points.map((p) => p.topWeight)} height={56} />
+            <Sparkline values={data.points.map((p) => p.topWeight)} height={56}
+              refValue={Math.max(...data.points.map((p) => p.topWeight))} />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{shortDate(data.points[0].date)}</span>
               <span>{data.points.length} sessions</span>

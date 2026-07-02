@@ -30,9 +30,9 @@ import { CardioLogger } from "./CardioLogger";
 import { confirmTap } from "@/lib/confirm";
 import {
   Check, Plus, Pencil, Trash2, ChevronUp, ChevronDown, ArrowUpDown,
-  Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search, BicepsFlexed,
+  Mic, MicOff, ChevronRight, ChevronLeft, GripVertical, Search,
 } from "lucide-react";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { WeekDots, weekHits } from "./WeekDots";
 
 interface SpeechRec {
   continuous: boolean;
@@ -91,8 +91,8 @@ function StatTile({ label, value, delta, fmt = (n: number) => String(n) }: {
     <Card className="gap-0 py-3 px-3 items-start">
       <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
       <span className="num display text-2xl leading-tight">{value === undefined ? "·" : fmt(value)}</span>
-      <span className="num text-xs text-muted-foreground whitespace-nowrap">
-        {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))} vs last
+      <span className="num text-xs text-muted-foreground whitespace-nowrap rounded-full bg-muted px-2 py-0.5 mt-1">
+        {d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))}
       </span>
     </Card>
   );
@@ -103,14 +103,23 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   const [monthName] = useState(() => new Date().toLocaleDateString(undefined, { month: "long" }).toUpperCase());
   const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
   const lastMonth = useQuery(api.workouts.rangeStats, { start: bounds.prevStart, end: bounds.prevEnd });
+  const recent = useQuery(api.workouts.recentSessions);
   const [pickOpen, setPickOpen] = useState(false);
 
   const delta = (k: "workouts" | "sets" | "volume") =>
     thisMonth && lastMonth ? thisMonth[k] - lastMonth[k] : undefined;
 
+  const trained = weekHits((recent ?? []).filter((s) => s.status === "done").map((s) => s.date));
+
   return (
     <div className="p-(--page-padding) flex flex-col gap-4">
       <h2 className="display text-3xl mt-1">{monthName}</h2>
+
+      <Card className="p-4 gap-3">
+        <span className="text-xs uppercase tracking-widest font-semibold text-muted-foreground">This week</span>
+        <WeekDots hits={trained} />
+      </Card>
+
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Workouts" value={thisMonth?.workouts} delta={delta("workouts")} />
         <StatTile label="Sets" value={thisMonth?.sets} delta={delta("sets")} />
@@ -118,13 +127,14 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
       </div>
 
       {thisMonth && thisMonth.workouts === 0 && (
-        <Empty className="mt-6">
-          <EmptyHeader>
-            <EmptyMedia variant="icon"><BicepsFlexed /></EmptyMedia>
-            <EmptyTitle>No workouts this month</EmptyTitle>
-            <EmptyDescription>Tap the + below to pick a day and start lifting.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <div className="mt-8 flex flex-col items-center text-center select-none">
+          <p className="display text-5xl leading-[1.05]">SQUAT.</p>
+          <p className="display text-5xl leading-[1.05] opacity-60">BENCH.</p>
+          <p className="display text-5xl leading-[1.05] opacity-25">DEADLIFT.</p>
+          <p className="text-sm text-muted-foreground mt-4">
+            Nothing logged this month. Tap <span className="font-semibold text-foreground">+</span> to pick a day.
+          </p>
+        </div>
       )}
 
       {/* FAB → what kind of day */}
@@ -400,7 +410,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   return (
     <div className="p-(--page-padding) flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2 sticky top-0 -mx-(--page-padding) px-(--page-padding) py-1.5 bg-background/90 backdrop-blur z-10">
+      <div className="glass flex items-center justify-between gap-2 sticky top-(--app-header-h) -mx-(--page-padding) px-(--page-padding) py-1.5 z-10">
         <div className="flex items-center gap-2.5 min-w-0">
           {sets.length === 0 ? (
             <button className={iconBtn} onClick={() => discard({ sessionId: session._id })} aria-label="Back">
@@ -579,6 +589,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
   }
 
   const last: SetRecord[] = (lastSets ?? []) as SetRecord[];
+  const lastWorking = last.filter((s) => !s.isWarmup);
+  // Ghost of last session's same-numbered set, self-comparison in place.
+  const ghost = lastWorking[workingDone] ?? null;
   const plan = rampPlan(exercise, last);
   const baseline = nextSetTarget(exercise, sets as SetRecord[], plan);
   const target = adjusted ?? baseline;
@@ -696,12 +709,16 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
           {target.weight > 0 ? (
             <button onClick={applyRec}
               className="rounded-lg bg-card/70 ring-1 ring-foreground/10 px-3 py-2.5 text-left active:opacity-70">
-              <div className="flex items-end justify-between gap-2">
+              <div className="flex items-baseline gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+                <span>Target</span>
+                {ghost && <span className="num normal-case tracking-normal">last {ghost.weight} × {ghost.reps}</span>}
+                <span className="ml-auto normal-case tracking-normal">tap to use →</span>
+              </div>
+              <div className="mt-1">
                 <span className="num display text-4xl leading-none">
                   {target.weight}
                   <span className="text-xl text-muted-foreground"> × {target.reps}</span>
                 </span>
-                <span className="text-xs text-muted-foreground mb-0.5 shrink-0">tap to use →</span>
               </div>
               <p className="text-xs text-muted-foreground mt-2 leading-snug">{adjusted ? (coachMsg ?? "Adjusted from what you told me.") : recReason}</p>
             </button>
@@ -738,7 +755,11 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
         ))}
       </div>
 
-      {timerStart && <RestTimer seconds={exercise.restSeconds} startedAt={timerStart} />}
+      {timerStart && (
+        <RestTimer seconds={exercise.restSeconds} startedAt={timerStart}
+          nextLabel={target.weight > 0 ? `${target.weight} × ${target.reps}` : null}
+          onSkip={() => setTimerStart(null)} />
+      )}
       {stopNote && (
         <p className="text-xs rounded-lg px-3 py-2" style={{ background: "var(--destructive-tint)" }}>{stopNote}</p>
       )}
@@ -768,7 +789,9 @@ function ExerciseCard({ exercise, sessionId, sets, muted, isActive, onActivate }
 
 function LoggedRow({ label, set, onTap }: { label: string; set: Doc<"sets">; onTap: () => void }) {
   return (
-    <button onClick={onTap} className={`${setRow} rounded-lg bg-muted px-3 py-1.5 text-left active:opacity-70`}>
+    <button onClick={onTap}
+      className={`${setRow} rounded-lg px-3 py-1.5 text-left active:opacity-70 ${set.isWarmup ? "bg-muted" : ""}`}
+      style={set.isWarmup ? undefined : { background: "var(--accent-tint)" }}>
       <span className="text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground">{label}</span>
       <span className="num font-medium text-sm">{set.weight} <span className="text-muted-foreground">×</span> {set.reps}</span>
       <span className="flex items-center gap-2">
