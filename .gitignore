@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 design-inspo/
+
+# per-user Superset overrides
+.superset/config.local.json
