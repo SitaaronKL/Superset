@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import {
-  Alert, FlatList, Modal, Pressable, ScrollView, Text, View,
+  Alert, Pressable, ScrollView, Text, useWindowDimensions, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomSheet, Host, RNHostView } from "@expo/ui";
+import { Button, ConfirmationDialog, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
+import { labelsHidden, pickerStyle, presentationBackground, tag, tint } from "@expo/ui/swift-ui/modifiers";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
@@ -71,6 +74,7 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const pad = useScreenInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [bounds] = useState(() => monthBounds(new Date()));
   const [monthName] = useState(() => new Date().toLocaleDateString(undefined, { month: "long" }));
   const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
@@ -120,14 +124,15 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
         <Plus size={28} color={t.accentFg} />
       </Pressable>
 
-      {/* Day picker: a content-sized bottom sheet, not a full-height page. */}
-      <Modal visible={pickOpen} transparent animationType="fade" onRequestClose={() => setPickOpen(false)}>
-        <Pressable onPress={() => setPickOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
-          <Pressable onPress={() => {}} style={{
-            backgroundColor: t.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, borderCurve: "continuous",
-            borderWidth: 1, borderColor: t.hairline, padding: 20, paddingBottom: insets.bottom + 12, gap: 10,
-          }}>
-            <View style={{ alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: t.border, marginBottom: 6 }} />
+      {/* Day picker. Omit snapPoints so the native sheet sizes to the rows. Swipe dismisses, so there is no Cancel. */}
+      <BottomSheet
+        isPresented={pickOpen}
+        onDismiss={() => setPickOpen(false)}
+        showDragIndicator
+        modifiers={[presentationBackground(t.bg)]}
+      >
+        <RNHostView matchContents>
+          <View style={{ width: windowWidth - 32, gap: 10, paddingBottom: insets.bottom }}>
             <Display size={26} style={{ marginBottom: 6 }}>What are we training?</Display>
             {days.map((d) => (
               <Pressable key={d._id}
@@ -146,16 +151,9 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
               style={({ pressed }) => ({ borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderStyle: "dashed", borderColor: t.border, padding: 18, opacity: pressed ? 0.7 : 1 })}>
               <Body color={t.mutedFg}>Freestyle session (no template)</Body>
             </Pressable>
-            <Pressable onPress={() => setPickOpen(false)}
-              style={({ pressed }) => ({
-                marginTop: 4, borderRadius: 22, borderCurve: "continuous", padding: 18,
-                backgroundColor: t.muted, alignItems: "center", opacity: pressed ? 0.7 : 1,
-              })}>
-              <Body style={{ fontFamily: fonts.sansSemiBold }}>Cancel</Body>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </View>
+        </RNHostView>
+      </BottomSheet>
     </Screen>
   );
 }
@@ -172,6 +170,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   const discard = useMutation(api.workouts.discardSession);
   const [activeExercise, setActiveExercise] = useState<Id<"exercises"> | null>(null);
   const [timer, setTimer] = useState<{ startedAt: number; seconds: number; nextLabel: string | null } | null>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const day = days.find((d) => d._id === session.programDayId) ?? null;
   const insets = useSafeAreaInsets();
@@ -193,14 +192,10 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   if (!exercises || !sets) return <Screen><Body color={t.mutedFg} style={{ padding: 24, paddingTop: 80 }}>Loading…</Body></Screen>;
 
+  const working = sets.filter((s) => !s.isWarmup).length;
   const leave = () => {
-    const working = sets.filter((s) => !s.isWarmup).length;
     if (working === 0) { void discard({ sessionId: session._id }); return; }
-    Alert.alert("Leave this session?", `You've logged ${working} set(s).`, [
-      { text: "Keep going", style: "cancel" },
-      { text: "Finish & save", onPress: () => void finish({ sessionId: session._id }) },
-      { text: "Discard", style: "destructive", onPress: () => void discard({ sessionId: session._id }) },
-    ]);
+    setLeaveOpen(true);
   };
 
   return (
@@ -221,10 +216,31 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
       <ScreenFades topFade={72} />
 
       <View style={{ position: "absolute", top: insets.top, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
-        <Pressable onPress={leave} accessibilityLabel="Back"
-          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-          <ChevronLeft size={18} color={t.fg} />
-        </Pressable>
+        <Host matchContents colorScheme="dark" seedColor={t.accent} style={{ width: 40, height: 40 }}>
+          <ConfirmationDialog
+            title="Leave this session?"
+            isPresented={leaveOpen}
+            onIsPresentedChange={setLeaveOpen}
+            titleVisibility="visible"
+          >
+            <ConfirmationDialog.Trigger>
+              <RNHostView matchContents>
+                <Pressable onPress={leave} accessibilityLabel="Back"
+                  style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
+                  <ChevronLeft size={18} color={t.fg} />
+                </Pressable>
+              </RNHostView>
+            </ConfirmationDialog.Trigger>
+            <ConfirmationDialog.Message>
+              <SwiftText>{`You've logged ${working} set(s).`}</SwiftText>
+            </ConfirmationDialog.Message>
+            <ConfirmationDialog.Actions>
+              <Button label="Keep going" role="cancel" />
+              <Button label="Finish & save" onPress={() => void finish({ sessionId: session._id })} />
+              <Button label="Discard" role="destructive" onPress={() => void discard({ sessionId: session._id })} />
+            </ConfirmationDialog.Actions>
+          </ConfirmationDialog>
+        </Host>
         <Display size={22} style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</Display>
         <Pressable onPress={() => void finish({ sessionId: session._id })} accessibilityLabel="Finish"
           style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
@@ -243,26 +259,22 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
 function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (f: FatigueId | null) => void }) {
   const t = useTheme();
+  const danger = value === "failure" || value === "tooTired";
+  // Segmented pickers stay on the selected segment, so None is the clear.
   return (
-    <View style={{ flexDirection: "row", gap: 6 }}>
-      {FATIGUE.map((f) => {
-        const on = value === f.id;
-        const danger = f.id === "failure" || f.id === "tooTired";
-        return (
-          <Pressable key={f.id} onPress={() => onChange(on ? null : f.id)}
-            style={{
-              flex: 1, height: 34, borderRadius: 11, borderCurve: "continuous", alignItems: "center", justifyContent: "center",
-              backgroundColor: on ? (danger ? t.destructive : t.fg) : "transparent",
-              borderWidth: on ? 0 : 1, borderColor: t.border,
-            }}>
-            <Text style={{
-              fontFamily: fonts.sansSemiBold, fontSize: 12,
-              color: on ? (danger ? "#fff" : "#000") : t.fg,
-            }}>{f.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <Host matchContents={{ vertical: true }} colorScheme="dark" style={{ minHeight: 34, backgroundColor: "transparent" }}>
+      <Picker<FatigueId | "none">
+        label="Effort"
+        selection={value ?? "none"}
+        onSelectionChange={(next) => onChange(next === "none" ? null : next)}
+        modifiers={[pickerStyle("segmented"), labelsHidden(), tint(danger ? t.destructive : t.accent)]}
+      >
+        <SwiftText modifiers={[tag("none")]}>None</SwiftText>
+        {FATIGUE.map((f) => (
+          <SwiftText key={f.id} modifiers={[tag(f.id)]}>{f.label}</SwiftText>
+        ))}
+      </Picker>
+    </Host>
   );
 }
 
