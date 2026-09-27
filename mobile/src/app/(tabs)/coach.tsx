@@ -134,7 +134,7 @@ function CoachThread({ error }: { error: string | null }) {
             />
           </ThreadPrimitive.Root>
 
-          <ScreenFades topFade={60} bottom={false} />
+          <ScreenFades topFade={88} bottom={false} />
 
           {/* Composer stays above ScreenFades; its own fade covers the tab bar. */}
           <View

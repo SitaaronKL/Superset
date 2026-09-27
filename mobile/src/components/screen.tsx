@@ -41,15 +41,17 @@ export function ScreenFades({ topFade = 28, bottom = true }: {
 
 /** Blur masked by a gradient: fully blurred at the screen edge, clear toward the content. */
 export function EdgeFade({ edge, height }: { edge: "top" | "bottom"; height: number }) {
-  const id = `fade-${edge}`;
-  const solidAtEdge = edge === "top" ? { from: 1, to: 0 } : { from: 0, to: 1 };
-  const gradient = (
+  // At the screen edge: 1 (fully covered). Toward the content: 0 (clear).
+  const stops = edge === "top"
+    ? [[0, 1], [0.45, 0.9], [1, 0]]
+    : [[0, 0], [0.4, 0.75], [1, 1]];
+  const gradient = (id: string, color: string, scale: number) => (
     <Svg style={StyleSheet.absoluteFill}>
       <Defs>
         <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#000" stopOpacity={solidAtEdge.from} />
-          <Stop offset="0.55" stopColor="#000" stopOpacity={edge === "top" ? 0.7 : 0.3} />
-          <Stop offset="1" stopColor="#000" stopOpacity={solidAtEdge.to} />
+          {stops.map(([offset, opacity]) => (
+            <Stop key={offset} offset={offset} stopColor={color} stopOpacity={opacity * scale} />
+          ))}
         </LinearGradient>
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
@@ -57,11 +59,12 @@ export function EdgeFade({ edge, height }: { edge: "top" | "bottom"; height: num
   );
   return (
     <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, height, [edge]: 0 }}>
-      <MaskedView style={StyleSheet.absoluteFill} maskElement={gradient}>
-        <BlurView tint="systemChromeMaterialDark" intensity={40} style={StyleSheet.absoluteFill} />
-        {/* A wash of the page color so text under the blur stays quiet. */}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.bg, opacity: 0.55 }]} />
+      {/* Blur that is strongest at the edge and melts into the content. */}
+      <MaskedView style={StyleSheet.absoluteFill} maskElement={gradient(`mask-${edge}`, "#000", 1)}>
+        <BlurView tint="systemChromeMaterialDark" intensity={60} style={StyleSheet.absoluteFill} />
       </MaskedView>
+      {/* Page-color fade on top, so content under the clock and tab bar dissolves rather than reads. */}
+      {gradient(`wash-${edge}`, palette.bg, 0.92)}
     </View>
   );
 }
