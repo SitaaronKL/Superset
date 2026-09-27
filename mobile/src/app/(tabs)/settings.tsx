@@ -143,15 +143,15 @@ export default function SettingsScreen() {
           <Section
             header={
               <RNHostView matchContents>
-                <View style={{ paddingTop: pad.top, paddingBottom: 8, gap: 18 }}>
+                <View style={{ paddingTop: pad.top, paddingBottom: 8, paddingLeft: 20, gap: 18 }}>
                   <Display size={34}>Settings</Display>
-                  <Eyebrow>Accent</Eyebrow>
+                  <Eyebrow style={{ paddingLeft: 20 }}>Accent</Eyebrow>
                 </View>
               </RNHostView>
             }
           >
             <RNHostView matchContents>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, paddingVertical: 4 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, paddingVertical: 4, paddingLeft: 44 }}>
                 {ACCENTS.map((a) => {
                   const hex = accentFromSetting(a.value);
                   const active = accent === a.value;
