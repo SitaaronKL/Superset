@@ -1,15 +1,20 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import {
-  Alert, Image, Modal, Pressable, ScrollView, Text, View, useWindowDimensions,
+  Alert, Image, Pressable, ScrollView, Text, View, useWindowDimensions,
+  type StyleProp, type ViewStyle,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import { Camera, ChevronDown, ChevronUp, Droplet, Flame, Minus, Plus, Scale, Trash2 } from "lucide-react-native";
+import { BottomSheet, Host } from "@expo/ui";
+import { Button, ContextMenu, ProgressView, RNHostView } from "@expo/ui/swift-ui";
+import { frame, presentationBackground, progressViewStyle, tint } from "@expo/ui/swift-ui/modifiers";
+import { Camera, ChevronDown, ChevronUp, Droplet, Flame, Minus, Plus, Scale } from "lucide-react-native";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Body, Card, Display, Eyebrow, Field, Num, Pill } from "@/components/ui/kit";
+import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { WeekDots } from "@/components/week-dots";
 import { SparkLine } from "@/components/spark-line";
 import { fonts, palette, useTheme } from "@/lib/theme";
@@ -26,6 +31,8 @@ const dayLabel = (key: number, todayStart: number) => {
 export default function FoodScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const pad = useScreenInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const logs = useQuery(api.food.listFoodLogs);
   const settings = useQuery(api.settings.getAll);
   const del = useMutation(api.food.deleteFoodLog);
@@ -52,6 +59,7 @@ export default function FoodScreen() {
 
   const proteinGoal = Number(settings?.proteinGoal) || 0;
   const calorieGoal = Number(settings?.calorieGoal) || 0;
+  const cardWidth = (screenWidth - 32 - 8) / 2;
 
   const confirmDelete = (id: Id<"foodLogs">) =>
     Alert.alert("Delete this entry?", "Its calories and protein come off today's totals.", [
@@ -60,8 +68,8 @@ export default function FoodScreen() {
     ]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 160 }}>
+    <Screen>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingTop: pad.top, paddingBottom: pad.bottom }}>
         <Display size={26}>Food</Display>
 
         <NetCaloriesCard calorieGoal={calorieGoal} todayStart={todayStart} />
@@ -86,14 +94,15 @@ export default function FoodScreen() {
             </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {day.items.map((l) => (
-                <Pressable key={l._id} onLongPress={() => confirmDelete(l._id)}
-                  style={{ width: "48%", backgroundColor: t.card, borderRadius: 18, borderCurve: "continuous", overflow: "hidden", borderWidth: 1, borderColor: t.hairline }}>
-                  {l.itemUrl && <Image source={{ uri: l.itemUrl }} style={{ width: "100%", aspectRatio: 1 }} />}
-                  <View style={{ padding: 10, gap: 2 }}>
-                    <Body size={13} numberOfLines={1} style={{ fontFamily: fonts.sansMedium }}>{l.name || "Logged"}</Body>
-                    <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+                <EntryMenu key={l._id} onDelete={() => confirmDelete(l._id)} style={{ width: cardWidth }}>
+                  <View style={{ width: cardWidth, backgroundColor: t.card, borderRadius: 18, borderCurve: "continuous", overflow: "hidden", borderWidth: 1, borderColor: t.hairline }}>
+                    {l.itemUrl && <Image source={{ uri: l.itemUrl }} style={{ width: "100%", aspectRatio: 1 }} />}
+                    <View style={{ padding: 10, gap: 2 }}>
+                      <Body size={13} numberOfLines={1} style={{ fontFamily: fonts.sansMedium }}>{l.name || "Logged"}</Body>
+                      <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+                    </View>
                   </View>
-                </Pressable>
+                </EntryMenu>
               ))}
             </View>
           </View>
@@ -102,10 +111,11 @@ export default function FoodScreen() {
             onToggle={() => setOpenDay(openDay === day.key ? null : day.key)}
             onDelete={confirmDelete} />
         ))}
-        {days.length > 0 && <Body size={11} color={t.mutedFg}>Long-press an entry to delete it.</Body>}
+        {days.length > 0 && <Body size={11} color={t.mutedFg}>Press and hold an entry, then tap Delete.</Body>}
       </ScrollView>
+      <ScreenFades />
 
-      {/* Camera FAB, same learned spot as Train's + */}
+      {/* Camera FAB, same learned spot as Train's +. After the fades so the blur does not cover it. */}
       <Pressable
         onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setAddOpen(true); }}
         accessibilityLabel="Log food"
@@ -120,8 +130,28 @@ export default function FoodScreen() {
         <Camera size={26} color={t.accentFg} />
       </Pressable>
 
-      <AddFoodModal open={addOpen} onClose={() => setAddOpen(false)} />
-    </SafeAreaView>
+      <AddFoodSheet open={addOpen} onClose={() => setAddOpen(false)} />
+    </Screen>
+  );
+}
+
+/** Long-press opens a native menu. Delete still confirms before the row is removed. */
+function EntryMenu({ onDelete, children, style }: {
+  onDelete: () => void;
+  children: ReactElement;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Host matchContents={{ vertical: true }} colorScheme="dark" style={style}>
+      <ContextMenu>
+        <ContextMenu.Trigger>
+          <RNHostView matchContents>{children}</RNHostView>
+        </ContextMenu.Trigger>
+        <ContextMenu.Items>
+          <Button role="destructive" label="Delete" systemImage="trash" onPress={onDelete} />
+        </ContextMenu.Items>
+      </ContextMenu>
+    </Host>
   );
 }
 
@@ -129,18 +159,25 @@ function GoalBar({ label, value, goal, unit, moreIsGood }: {
   label: string; value: number; goal: number; unit: string; moreIsGood?: boolean;
 }) {
   const t = useTheme();
-  const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  const ratio = goal > 0 ? Math.min(1, value / goal) : 0;
   const met = goal > 0 && value >= goal;
   const fill = met ? (moreIsGood ? t.success : t.destructive) : t.accent;
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
         <Eyebrow style={{ fontSize: 10 }}>{label}</Eyebrow>
         <Num size={12}>{value}{goal > 0 ? ` / ${goal}` : ""} {unit}</Num>
       </View>
-      <View style={{ height: 10, borderRadius: 999, backgroundColor: t.muted, overflow: "hidden" }}>
-        <View style={{ height: "100%", width: `${pct}%`, borderRadius: 999, backgroundColor: fill }} />
-      </View>
+      <Host colorScheme="dark" style={{ height: 10, alignSelf: "stretch" }}>
+        <ProgressView
+          value={ratio}
+          modifiers={[
+            progressViewStyle("linear"),
+            tint(fill),
+            frame({ maxWidth: Infinity, height: 8 }),
+          ]}
+        />
+      </Host>
     </View>
   );
 }
@@ -329,8 +366,10 @@ function WeightCard() {
   );
 }
 
-function AddFoodModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AddFoodSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const generateUploadUrl = useMutation(api.food.generateUploadUrl);
   const analyze = useAction(api.food.analyze);
   const addFoodLog = useMutation(api.food.addFoodLog);
@@ -383,37 +422,53 @@ function AddFoodModal({ open, onClose }: { open: boolean; onClose: () => void })
     }
   };
 
+  // The sheet pads 16 on each side. Give the hosted form a real size so the
+  // photo and fields lay out inside the 92% detent instead of collapsing.
+  const sheetWidth = width - 32;
+  const sheetHeight = Math.max(360, Math.round(height * 0.92) - 36);
+
   return (
-    <Modal visible={open} animationType="slide" presentationStyle="formSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: t.bg, padding: 20, gap: 12 }}>
-        <Display size={24}>Log food</Display>
+    <BottomSheet
+      isPresented={open}
+      onDismiss={onClose}
+      snapPoints={[{ fraction: 0.92 }]}
+      modifiers={[presentationBackground(palette.bg)]}
+    >
+      <RNHostView matchContents>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ width: sheetWidth, height: sheetHeight, backgroundColor: t.bg }}
+          contentContainerStyle={{ gap: 12, paddingBottom: insets.bottom + 12 }}
+        >
+          <Display size={24}>Log food</Display>
 
-        <Pressable onPress={() => void pick(true)}
-          style={{ aspectRatio: 1.4, borderRadius: 22, borderWidth: 1, borderStyle: photo ? "solid" : "dashed", borderColor: t.border, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: t.card }}>
-          {photo
-            ? <Image source={{ uri: photo.uri }} style={{ width: "100%", height: "100%" }} />
-            : <View style={{ alignItems: "center", gap: 8 }}>
-                <Camera size={26} color={t.mutedFg} />
-                <Body size={12} color={t.mutedFg}>Snap the meal</Body>
-              </View>}
-        </Pressable>
-        <Pill label="Choose from library" kind="outline" onPress={() => void pick(false)} />
+          <Pressable onPress={() => void pick(true)}
+            style={{ aspectRatio: 1.4, borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderStyle: photo ? "solid" : "dashed", borderColor: t.border, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: t.card }}>
+            {photo
+              ? <Image source={{ uri: photo.uri }} style={{ width: "100%", height: "100%" }} />
+              : <View style={{ alignItems: "center", gap: 8 }}>
+                  <Camera size={26} color={t.mutedFg} />
+                  <Body size={12} color={t.mutedFg}>Snap the meal</Body>
+                </View>}
+          </Pressable>
+          <Pill label="Choose from library" kind="outline" onPress={() => void pick(false)} />
 
-        <Field value={name} onChangeText={setName} placeholder="Name (optional, AI fills it in)" />
-        <Pill label={busy ? (stage || "Saving…") : "Save to today"} kind="accent"
-          onPress={() => void submit()} disabled={!photo || busy} />
-        {error && <Body size={12} color={t.destructive}>{error}</Body>}
-        <Body size={11} color={t.mutedFg} style={{ textAlign: "center" }}>
-          The coach reads your photo to name it and pull calories + protein.
-        </Body>
-        <Pill label="Cancel" kind="outline" onPress={onClose} />
-      </View>
-    </Modal>
+          <Field value={name} onChangeText={setName} placeholder="Name (optional, AI fills it in)" />
+          <Pill label={busy ? (stage || "Saving…") : "Save to today"} kind="accent"
+            onPress={() => void submit()} disabled={!photo || busy} />
+          {error && <Body size={12} color={t.destructive}>{error}</Body>}
+          <Body size={11} color={t.mutedFg} style={{ textAlign: "center" }}>
+            The coach reads your photo to name it and pull calories + protein.
+          </Body>
+          <Pill label="Cancel" kind="outline" onPress={onClose} />
+        </ScrollView>
+      </RNHostView>
+    </BottomSheet>
   );
 }
 
 // Past days collapse to one pill: label, count, totals. Tap to see the items
-// as text rows (no photos), long-press a row to delete it.
+// as text rows (no photos). Each row has a native Delete menu.
 function PastDayPill({ day, open, onToggle, onDelete }: {
   day: { label: string; cal: number; pro: number; items: { _id: Id<"foodLogs">; name: string | null; calories: number | null; protein: number | null }[] };
   open: boolean;
@@ -421,6 +476,8 @@ function PastDayPill({ day, open, onToggle, onDelete }: {
   onDelete: (id: Id<"foodLogs">) => void;
 }) {
   const t = useTheme();
+  const { width } = useWindowDimensions();
+  const rowWidth = width - 34;
   return (
     <View style={{ backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderColor: t.hairline, overflow: "hidden" }}>
       <Pressable onPress={onToggle} style={({ pressed }) => ({
@@ -434,11 +491,12 @@ function PastDayPill({ day, open, onToggle, onDelete }: {
         {open ? <ChevronUp size={16} color={t.mutedFg} /> : <ChevronDown size={16} color={t.mutedFg} />}
       </Pressable>
       {open && day.items.map((l) => (
-        <Pressable key={l._id} onLongPress={() => onDelete(l._id)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: t.hairline }}>
-          <Body size={13} numberOfLines={1} style={{ flex: 1 }}>{l.name || "Logged"}</Body>
-          <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
-        </Pressable>
+        <EntryMenu key={l._id} onDelete={() => onDelete(l._id)} style={{ width: rowWidth }}>
+          <View style={{ width: rowWidth, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: t.hairline }}>
+            <Body size={13} numberOfLines={1} style={{ flex: 1 }}>{l.name || "Logged"}</Body>
+            <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+          </View>
+        </EntryMenu>
       ))}
     </View>
   );
