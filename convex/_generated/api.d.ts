@@ -12,6 +12,7 @@ import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as cardio from "../cardio.js";
 import type * as coach from "../coach.js";
+import type * as copy from "../copy.js";
 import type * as crons from "../crons.js";
 import type * as engine from "../engine.js";
 import type * as food from "../food.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cardio: typeof cardio;
   coach: typeof coach;
+  copy: typeof copy;
   crons: typeof crons;
   engine: typeof engine;
   food: typeof food;
