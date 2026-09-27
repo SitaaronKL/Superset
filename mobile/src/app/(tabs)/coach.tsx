@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowUp, Trash2 } from "lucide-react-native";
+import { Host } from "@expo/ui";
+import { Button, ConfirmationDialog, RNHostView, Text } from "@expo/ui/swift-ui";
 import {
   AssistantRuntimeProvider,
   AuiIf,
@@ -16,6 +18,7 @@ import {
 } from "@assistant-ui/react-native";
 import { api } from "../../../../convex/_generated/api";
 import type { Doc } from "../../../../convex/_generated/dataModel";
+import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { Body, Display, radius, squircle } from "@/components/ui/kit";
 import { fonts, palette, useTheme } from "@/lib/theme";
 
@@ -76,7 +79,8 @@ export default function CoachScreen() {
 function CoachThread({ error }: { error: string | null }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const clearChat = useMutation(api.coach.clearChat);
+  // 12 (default) + 48 lines the first message up with the top fade under the header.
+  const pad = useScreenInsets(48);
   const hasMessages = useAuiState((s) => !s.thread.isEmpty);
 
   // The native tab bar sits under the content. Clear it while the keyboard is
@@ -93,71 +97,115 @@ function CoachThread({ error }: { error: string | null }) {
   const components = useMemo(() => ({ UserMessage, AssistantMessage }), []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={["top"]}>
+    <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 6 }}>
-          <Display size={24}>Coach</Display>
-          {hasMessages && (
-            <Pressable onPress={() => void clearChat()} accessibilityLabel="Clear chat" style={{ padding: 6 }}>
-              <Trash2 size={16} color={t.mutedFg} />
-            </Pressable>
-          )}
-        </View>
-
         <View style={{ flex: 1 }}>
-        <ThreadPrimitive.Root style={{ flex: 1 }}>
-          <ThreadPrimitive.MessagesFlatList
-            components={components}
-            contentContainerStyle={{ padding: 16, paddingBottom: composerHeight + 16, gap: 10, flexGrow: 1 }}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={
-              <AuiIf condition={(s) => s.thread.isEmpty}>
-                <EmptyState />
-              </AuiIf>
-            }
-            ListFooterComponent={
-              <View style={{ gap: 10 }}>
-                <AuiIf condition={(s) => s.thread.isRunning}>
-                  <View style={{ alignSelf: "flex-start", backgroundColor: t.muted, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-                    <Body size={14} color={t.mutedFg}>…</Body>
-                  </View>
+          <ThreadPrimitive.Root style={{ flex: 1 }}>
+            <ThreadPrimitive.MessagesFlatList
+              components={components}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingTop: pad.top,
+                paddingBottom: composerHeight + 16,
+                gap: 10,
+                flexGrow: 1,
+              }}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+              ListHeaderComponent={
+                <AuiIf condition={(s) => s.thread.isEmpty}>
+                  <EmptyState />
                 </AuiIf>
-                {error && (
-                  <View style={{ alignSelf: "flex-start", backgroundColor: t.destructive + "22", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-                    <Body size={14} color={t.destructive}>{error}</Body>
-                  </View>
-                )}
-              </View>
-            }
-          />
-        </ThreadPrimitive.Root>
-
-        {/* ChatGPT-style composer: one rounded field, send button inside on the right. */}
-        <View
-          onLayout={(e) => setComposerHeight(e.nativeEvent.layout.height)}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 28, paddingBottom: composerBottom }}
-        >
-          <BottomFade />
-          <ComposerPrimitive.Root
-            style={{
-              flexDirection: "row", alignItems: "flex-end", gap: 8,
-              backgroundColor: t.card, borderRadius: 26, borderCurve: "continuous",
-              borderWidth: 1, borderColor: t.hairline, paddingLeft: 18, paddingRight: 6, paddingVertical: 6,
-            }}
-          >
-            <ComposerPrimitive.Input
-              placeholder="Ask anything"
-              placeholderTextColor={t.mutedFg}
-              multiline
-              style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingVertical: 10, color: t.fg, fontSize: 16, fontFamily: fonts.sans }}
+              }
+              ListFooterComponent={
+                <View style={{ gap: 10 }}>
+                  <AuiIf condition={(s) => s.thread.isRunning}>
+                    <View style={{ alignSelf: "flex-start", backgroundColor: t.muted, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
+                      <Body size={14} color={t.mutedFg}>…</Body>
+                    </View>
+                  </AuiIf>
+                  {error && (
+                    <View style={{ alignSelf: "flex-start", backgroundColor: t.destructive + "22", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
+                      <Body size={14} color={t.destructive}>{error}</Body>
+                    </View>
+                  )}
+                </View>
+              }
             />
-            <SendButton />
-          </ComposerPrimitive.Root>
-        </View>
+          </ThreadPrimitive.Root>
+
+          <ScreenFades topFade={60} bottom={false} />
+
+          {/* Composer stays above ScreenFades; its own fade covers the tab bar. */}
+          <View
+            onLayout={(e) => setComposerHeight(e.nativeEvent.layout.height)}
+            style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 2, paddingHorizontal: 16, paddingTop: 28, paddingBottom: composerBottom }}
+          >
+            <BottomFade />
+            <ComposerPrimitive.Root
+              style={{
+                flexDirection: "row", alignItems: "flex-end", gap: 8,
+                backgroundColor: t.card, borderRadius: 26, borderCurve: "continuous",
+                borderWidth: 1, borderColor: t.hairline, paddingLeft: 18, paddingRight: 6, paddingVertical: 6,
+              }}
+            >
+              <ComposerPrimitive.Input
+                placeholder="Ask anything"
+                placeholderTextColor={t.mutedFg}
+                multiline
+                style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingVertical: 10, color: t.fg, fontSize: 16, fontFamily: fonts.sans }}
+              />
+              <SendButton />
+            </ComposerPrimitive.Root>
+          </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      <View
+        pointerEvents="box-none"
+        style={{ position: "absolute", top: insets.top, left: 0, right: 0, zIndex: 3, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 6 }}
+      >
+        <Display size={24}>Coach</Display>
+        {hasMessages && <ClearChatButton />}
+      </View>
+    </Screen>
+  );
+}
+
+function ClearChatButton() {
+  const t = useTheme();
+  const clearChat = useMutation(api.coach.clearChat);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Host matchContents colorScheme="dark" style={{ width: 32, height: 32 }}>
+      <ConfirmationDialog
+        title="Clear chat?"
+        isPresented={open}
+        onIsPresentedChange={setOpen}
+        titleVisibility="visible"
+      >
+        <ConfirmationDialog.Trigger>
+          <RNHostView matchContents>
+            <Pressable
+              onPress={() => setOpen(true)}
+              accessibilityLabel="Clear chat"
+              hitSlop={8}
+              style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
+            >
+              <Trash2 size={16} color={t.mutedFg} />
+            </Pressable>
+          </RNHostView>
+        </ConfirmationDialog.Trigger>
+        <ConfirmationDialog.Actions>
+          <Button role="destructive" label="Clear chat" onPress={() => void clearChat()} />
+          <Button role="cancel" label="Cancel" />
+        </ConfirmationDialog.Actions>
+        <ConfirmationDialog.Message>
+          <Text>Every message in this conversation will be deleted.</Text>
+        </ConfirmationDialog.Message>
+      </ConfirmationDialog>
+    </Host>
   );
 }
 
