@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { noEmDashDeep } from "./copy";
 import { action, mutation, query } from "./_generated/server";
 import OpenAI from "openai";
 
@@ -49,7 +50,7 @@ export const analyze = action({
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "food", strict: true, schema: ANALYZE_SCHEMA as any } },
     });
-    return JSON.parse(response.choices[0].message.content ?? "{}");
+    return noEmDashDeep(JSON.parse(response.choices[0].message.content ?? "{}"));
   },
 });
 

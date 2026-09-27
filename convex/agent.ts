@@ -10,6 +10,7 @@
 // rep number. Every number shown to the user originates in or is clamped by
 // engine.ts.
 import { v } from "convex/values";
+import { noEmDash, noEmDashDeep } from "./copy";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { clampAdjustment } from "./engine";
@@ -93,7 +94,7 @@ export const ingest = action({
         json_schema: { name: "ingest", strict: true, schema: INGEST_SCHEMA as any },
       },
     });
-    return JSON.parse(response.choices[0].message.content ?? "{}");
+    return noEmDashDeep(JSON.parse(response.choices[0].message.content ?? "{}"));
   },
 });
 
@@ -128,7 +129,7 @@ export const coachNote = action({
         },
       ],
     });
-    return response.choices[0].message.content ?? args.rationale;
+    return noEmDash(response.choices[0].message.content ?? args.rationale);
   },
 });
 
@@ -193,6 +194,6 @@ export const adjustTarget = action({
     const proposed = { weight: Number(raw.weight), reps: Number(raw.reps) };
     const bounded = clampAdjustment(baseline, proposed, args.weightIncrement);
     const clamped = bounded.weight !== proposed.weight || bounded.reps !== proposed.reps;
-    return { ...bounded, reason: raw.reason ?? "Adjusted.", clamped };
+    return { ...bounded, reason: noEmDash(raw.reason ?? "Adjusted."), clamped };
   },
 });

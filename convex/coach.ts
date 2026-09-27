@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { NO_EM_DASH_RULE, noEmDash } from "./copy";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import OpenAI from "openai";
@@ -17,7 +18,11 @@ Eat clean: salmon, eggs, grass-fed meat, fruit, raw honey; cut industrial sugar.
 
 export const history = query({
   args: {},
-  handler: async (ctx) => await ctx.db.query("chatMessages").withIndex("by_time").order("asc").take(200),
+  handler: async (ctx) => {
+    const messages = await ctx.db.query("chatMessages").withIndex("by_time").order("asc").take(200);
+    // Older replies were stored before the no-em-dash rule; clean them on the way out.
+    return messages.map((m) => ({ ...m, content: noEmDash(m.content) }));
+  },
 });
 
 export const clearChat = mutation({
@@ -70,14 +75,14 @@ export const send = action({
       `Their training days: ${dayList || "none yet"}.\n` +
       `Recent sessions: ${recent || "none logged recently"}.\n` +
       `Known facts about them: ${memories.map((m) => m.fact).join("; ") || "none"}.\n` +
-      `Never invent specific weights to lift; for exact set targets, tell them the in-app coach on each exercise handles the numbers. No medical or dosing advice.`;
+      `Never invent specific weights to lift; for exact set targets, tell them the in-app coach on each exercise handles the numbers. No medical or dosing advice. ${NO_EM_DASH_RULE}`;
 
     const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create({
       model: MODEL,
       messages: [{ role: "system", content: system }, ...convo.map((m) => ({ role: m.role, content: m.content }))],
     });
-    const reply = response.choices[0].message.content ?? "Sorry, I blanked. Try again.";
+    const reply = noEmDash(response.choices[0].message.content ?? "Sorry, I blanked. Try again.");
     await ctx.runMutation(internal.coach.addMessage, { role: "assistant", content: reply });
     return reply;
   },

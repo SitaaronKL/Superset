@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { NO_EM_DASH_RULE, noEmDash } from "./copy";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import OpenAI from "openai";
@@ -38,7 +39,7 @@ export const dailyInsight = action({
           role: "system",
           content:
             "You are a concise, encouraging fitness nutrition coach. Reply with exactly ONE short, punchy sentence about the user's day so far. " +
-            "Focus on protein and calories relative to their goals (protein remaining, calorie surplus or deficit). No medical or dosing advice. Never use em dashes.",
+            "Focus on protein and calories relative to their goals (protein remaining, calorie surplus or deficit). No medical or dosing advice. " + NO_EM_DASH_RULE,
         },
         {
           role: "user",
@@ -48,6 +49,6 @@ export const dailyInsight = action({
         },
       ],
     });
-    return response.choices[0].message.content?.trim() || "Keep logging, you're doing great.";
+    return noEmDash(response.choices[0].message.content?.trim() || "Keep logging, you're doing great.");
   },
 });
