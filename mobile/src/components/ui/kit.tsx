@@ -3,14 +3,18 @@ import * as Haptics from "expo-haptics";
 import { fonts, useTheme } from "@/lib/theme";
 
 // The Superset kit: dense cards, eyebrow caption labels, Anton display,
-// Plex Mono numerals, pill controls. One system across every screen.
+// Plex Mono numerals, squircle controls. One system across every screen.
+
+// Apple-style continuous corners: 14pt on 44pt controls, 22pt on cards.
+export const radius = { control: 14, card: 22 } as const;
+export const squircle = { borderCurve: "continuous" } as const;
 
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const t = useTheme();
   return (
     <View
       style={[
-        { backgroundColor: t.card, borderRadius: 22, padding: 16, gap: 12, borderWidth: 1, borderColor: t.hairline },
+        { backgroundColor: t.card, borderRadius: radius.card, ...squircle, padding: 16, gap: 12, borderWidth: 1, borderColor: t.hairline },
         style,
       ]}
     >
@@ -86,7 +90,7 @@ export function Pill({ label, onPress, kind = "primary", disabled, style, haptic
       }}
       style={({ pressed }) => [
         {
-          backgroundColor: bg, borderRadius: 999, height: 44, paddingHorizontal: 18,
+          backgroundColor: bg, borderRadius: radius.control, ...squircle, height: 44, paddingHorizontal: 18,
           alignItems: "center", justifyContent: "center",
           borderWidth: kind === "outline" ? 1 : 0, borderColor: t.border,
           opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
@@ -109,7 +113,7 @@ export function Field(props: React.ComponentProps<typeof TextInput> & { mono?: b
       {...rest}
       style={[
         {
-          height: 44, borderRadius: 999, borderWidth: 1, borderColor: t.border,
+          height: 44, borderRadius: radius.control, ...squircle, borderWidth: 1, borderColor: t.border,
           paddingHorizontal: 16, color: t.fg, fontSize: 15,
           fontFamily: mono ? fonts.mono : fonts.sans,
         },

@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 23.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleTeamId": "MX63A5TH65",
+        "ascApiKeyPath": "/Users/dhruv/keys/AuthKey_R3G2387LF3.p8",
+        "ascApiKeyId": "R3G2387LF3",
+        "ascApiKeyIssuerId": "4c77b2f4-2964-4aa0-adc0-72fbc3051705",
+        "ascAppId": "6812583191"
+      }
+    }
+  }
+}

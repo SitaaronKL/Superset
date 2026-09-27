@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import {
   Alert, FlatList, Modal, Pressable, ScrollView, Text, View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react-native";
@@ -30,7 +31,7 @@ export default function TrainScreen() {
   const t = useTheme();
 
   if (session === undefined || days === undefined) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }}><Body color={t.mutedFg} style={{ padding: 24 }}>Loading…</Body></SafeAreaView>;
+    return <Screen><Body color={t.mutedFg} style={{ padding: 24, paddingTop: 80 }}>Loading…</Body></Screen>;
   }
   if (!session) return <TrainHome days={days} />;
   return <ActiveSession session={session} days={days} />;
@@ -69,6 +70,7 @@ function StatTile({ label, value, delta, fmt = String }: {
 function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const pad = useScreenInsets();
   const [bounds] = useState(() => monthBounds(new Date()));
   const [monthName] = useState(() => new Date().toLocaleDateString(undefined, { month: "long" }));
   const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
@@ -82,8 +84,8 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   const trained = weekHits((recent ?? []).filter((s) => s.status === "done").map((s) => s.date));
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 140 }}>
+    <Screen>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingTop: pad.top, paddingBottom: pad.bottom }}>
         <Display size={34}>{monthName}</Display>
 
         <Card>
@@ -98,21 +100,17 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
         </View>
 
         {thisMonth && thisMonth.workouts === 0 && (
-          <View style={{ alignItems: "center", marginTop: 28 }}>
-            <Display size={44}>Squat.</Display>
-            <Display size={44} style={{ opacity: 0.55 }}>Bench.</Display>
-            <Display size={44} style={{ opacity: 0.22 }}>Deadlift.</Display>
-            <Body color={t.mutedFg} style={{ marginTop: 12 }}>Nothing logged this month. Tap + to pick a day.</Body>
-          </View>
+          <Body color={t.mutedFg} style={{ textAlign: "center", marginTop: 12 }}>Nothing logged this month. Tap + to pick a day.</Body>
         )}
       </ScrollView>
+      <ScreenFades />
 
       {/* FAB */}
       <Pressable
         onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setPickOpen(true); }}
         accessibilityLabel="Start a workout"
         style={({ pressed }) => ({
-          position: "absolute", bottom: insets.bottom + 70, alignSelf: "center",
+          position: "absolute", bottom: insets.bottom + 28, alignSelf: "center",
           width: 58, height: 58, borderRadius: 29, backgroundColor: t.accent,
           alignItems: "center", justifyContent: "center",
           shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
@@ -122,19 +120,20 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
         <Plus size={28} color={t.accentFg} />
       </Pressable>
 
-      <Modal visible={pickOpen} animationType="slide" presentationStyle="pageSheet"
-        onRequestClose={() => setPickOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: t.bg, padding: 20, gap: 10 }}>
-          <Display size={26} style={{ marginBottom: 8 }}>What are we training?</Display>
-          <FlatList
-            data={days}
-            keyExtractor={(d) => d._id}
-            contentContainerStyle={{ gap: 10 }}
-            renderItem={({ item: d }) => (
-              <Pressable
+      {/* Day picker: a content-sized bottom sheet, not a full-height page. */}
+      <Modal visible={pickOpen} transparent animationType="fade" onRequestClose={() => setPickOpen(false)}>
+        <Pressable onPress={() => setPickOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
+          <Pressable onPress={() => {}} style={{
+            backgroundColor: t.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, borderCurve: "continuous",
+            borderWidth: 1, borderColor: t.hairline, padding: 20, paddingBottom: insets.bottom + 12, gap: 10,
+          }}>
+            <View style={{ alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: t.border, marginBottom: 6 }} />
+            <Display size={26} style={{ marginBottom: 6 }}>What are we training?</Display>
+            {days.map((d) => (
+              <Pressable key={d._id}
                 onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
                 style={({ pressed }) => ({
-                  backgroundColor: t.card, borderRadius: 22, padding: 18,
+                  backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", padding: 18,
                   flexDirection: "row", alignItems: "center", justifyContent: "space-between",
                   borderWidth: 1, borderColor: t.hairline, opacity: pressed ? 0.7 : 1,
                 })}
@@ -142,18 +141,22 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
                 <Display size={17}>{d.name}</Display>
                 <Num size={12} color={t.mutedFg}>{d.exerciseIds.length} exercises</Num>
               </Pressable>
-            )}
-            ListFooterComponent={
-              <Pressable onPress={() => { setPickOpen(false); void start({}); }}
-                style={{ borderRadius: 22, borderWidth: 1, borderStyle: "dashed", borderColor: t.border, padding: 18 }}>
-                <Body color={t.mutedFg}>Freestyle session (no template)</Body>
-              </Pressable>
-            }
-          />
-          <Pill label="Cancel" kind="outline" onPress={() => setPickOpen(false)} />
-        </View>
+            ))}
+            <Pressable onPress={() => { setPickOpen(false); void start({}); }}
+              style={({ pressed }) => ({ borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderStyle: "dashed", borderColor: t.border, padding: 18, opacity: pressed ? 0.7 : 1 })}>
+              <Body color={t.mutedFg}>Freestyle session (no template)</Body>
+            </Pressable>
+            <Pressable onPress={() => setPickOpen(false)}
+              style={({ pressed }) => ({
+                marginTop: 4, borderRadius: 22, borderCurve: "continuous", padding: 18,
+                backgroundColor: t.muted, alignItems: "center", opacity: pressed ? 0.7 : 1,
+              })}>
+              <Body style={{ fontFamily: fonts.sansSemiBold }}>Cancel</Body>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -171,6 +174,8 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   const [timer, setTimer] = useState<{ startedAt: number; seconds: number; nextLabel: string | null } | null>(null);
 
   const day = days.find((d) => d._id === session.programDayId) ?? null;
+  const insets = useSafeAreaInsets();
+  const sessionPad = useScreenInsets(56);
 
   const orderedIds = useMemo(() => {
     const fromDay = day ? [...day.exerciseIds] : [];
@@ -186,7 +191,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   const byId = useMemo(() => new Map((exercises ?? []).map((e) => [e._id, e])), [exercises]);
 
-  if (!exercises || !sets) return <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }}><Body color={t.mutedFg} style={{ padding: 24 }}>Loading…</Body></SafeAreaView>;
+  if (!exercises || !sets) return <Screen><Body color={t.mutedFg} style={{ padding: 24, paddingTop: 80 }}>Loading…</Body></Screen>;
 
   const leave = () => {
     const working = sets.filter((s) => !s.isWarmup).length;
@@ -199,20 +204,8 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={["top"]}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
-        <Pressable onPress={leave} accessibilityLabel="Back"
-          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-          <ChevronLeft size={18} color={t.fg} />
-        </Pressable>
-        <Display size={22} style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</Display>
-        <Pressable onPress={() => void finish({ sessionId: session._id })} accessibilityLabel="Finish"
-          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-          <Check size={18} color={t.fg} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 180 }}>
+    <Screen>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingTop: sessionPad.top, paddingBottom: sessionPad.bottom + 60 }}>
         {orderedIds.map((id) => {
           const ex = byId.get(id);
           if (!ex) return null;
@@ -225,12 +218,26 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
           );
         })}
       </ScrollView>
+      <ScreenFades topFade={72} />
+
+      <View style={{ position: "absolute", top: insets.top, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
+        <Pressable onPress={leave} accessibilityLabel="Back"
+          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
+          <ChevronLeft size={18} color={t.fg} />
+        </Pressable>
+        <Display size={22} style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</Display>
+        <Pressable onPress={() => void finish({ sessionId: session._id })} accessibilityLabel="Finish"
+          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
+          <Check size={18} color={t.fg} />
+        </Pressable>
+      </View>
+
 
       {timer && (
         <RestDock seconds={timer.seconds} startedAt={timer.startedAt} nextLabel={timer.nextLabel}
           onSkip={() => setTimer(null)} />
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -244,7 +251,7 @@ function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (
         return (
           <Pressable key={f.id} onPress={() => onChange(on ? null : f.id)}
             style={{
-              flex: 1, height: 34, borderRadius: 999, alignItems: "center", justifyContent: "center",
+              flex: 1, height: 34, borderRadius: 11, borderCurve: "continuous", alignItems: "center", justifyContent: "center",
               backgroundColor: on ? (danger ? t.destructive : t.fg) : "transparent",
               borderWidth: on ? 0 : 1, borderColor: t.border,
             }}>

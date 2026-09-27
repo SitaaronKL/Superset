@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import { Camera, Droplet, Flame, Minus, Plus, Scale, Trash2 } from "lucide-react-native";
+import { Camera, ChevronDown, ChevronUp, Droplet, Flame, Minus, Plus, Scale, Trash2 } from "lucide-react-native";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Body, Card, Display, Eyebrow, Field, Num, Pill } from "@/components/ui/kit";
@@ -16,6 +16,12 @@ import { fonts, palette, useTheme } from "@/lib/theme";
 
 const DAY = 24 * 60 * 60 * 1000;
 const dayKey = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const dayLabel = (key: number, todayStart: number) => {
+  if (key >= todayStart) return "Today";
+  if (key >= todayStart - DAY) return "Yesterday";
+  return new Date(key).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+};
 
 export default function FoodScreen() {
   const t = useTheme();
@@ -24,12 +30,24 @@ export default function FoodScreen() {
   const settings = useQuery(api.settings.getAll);
   const del = useMutation(api.food.deleteFoodLog);
   const [addOpen, setAddOpen] = useState(false);
+  const [openDay, setOpenDay] = useState<number | null>(null);
 
   const [todayStart] = useState(() => dayKey(Date.now()));
   const today = useMemo(() => {
     let cal = 0, pro = 0;
     for (const l of logs ?? []) if (l.loggedAt >= todayStart) { cal += l.calories ?? 0; pro += l.protein ?? 0; }
     return { cal, pro };
+  }, [logs, todayStart]);
+
+  const days = useMemo(() => {
+    const out: { key: number; label: string; cal: number; pro: number; items: NonNullable<typeof logs> }[] = [];
+    for (const l of logs ?? []) {
+      const key = dayKey(l.loggedAt);
+      let day = out[out.length - 1];
+      if (!day || day.key !== key) { day = { key, label: dayLabel(key, todayStart), cal: 0, pro: 0, items: [] }; out.push(day); }
+      day.cal += l.calories ?? 0; day.pro += l.protein ?? 0; day.items.push(l);
+    }
+    return out;
   }, [logs, todayStart]);
 
   const proteinGoal = Number(settings?.proteinGoal) || 0;
@@ -60,13 +78,16 @@ export default function FoodScreen() {
 
         <WeightCard />
 
-        {(logs ?? []).length > 0 && (
-          <View style={{ gap: 8 }}>
-            <Eyebrow>Logged</Eyebrow>
+        {days.map((day) => day.key >= todayStart ? (
+          <View key={day.key} style={{ gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+              <Eyebrow>{day.label}</Eyebrow>
+              <Num size={11} color={t.mutedFg}>{day.cal} cal · {round1(day.pro)}g</Num>
+            </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {(logs ?? []).slice(0, 24).map((l) => (
+              {day.items.map((l) => (
                 <Pressable key={l._id} onLongPress={() => confirmDelete(l._id)}
-                  style={{ width: "48%", backgroundColor: t.card, borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: t.hairline }}>
+                  style={{ width: "48%", backgroundColor: t.card, borderRadius: 18, borderCurve: "continuous", overflow: "hidden", borderWidth: 1, borderColor: t.hairline }}>
                   {l.itemUrl && <Image source={{ uri: l.itemUrl }} style={{ width: "100%", aspectRatio: 1 }} />}
                   <View style={{ padding: 10, gap: 2 }}>
                     <Body size={13} numberOfLines={1} style={{ fontFamily: fonts.sansMedium }}>{l.name || "Logged"}</Body>
@@ -75,9 +96,13 @@ export default function FoodScreen() {
                 </Pressable>
               ))}
             </View>
-            <Body size={11} color={t.mutedFg}>Long-press an entry to delete it.</Body>
           </View>
-        )}
+        ) : (
+          <PastDayPill key={day.key} day={day} open={openDay === day.key}
+            onToggle={() => setOpenDay(openDay === day.key ? null : day.key)}
+            onDelete={confirmDelete} />
+        ))}
+        {days.length > 0 && <Body size={11} color={t.mutedFg}>Long-press an entry to delete it.</Body>}
       </ScrollView>
 
       {/* Camera FAB, same learned spot as Train's + */}
@@ -85,7 +110,7 @@ export default function FoodScreen() {
         onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setAddOpen(true); }}
         accessibilityLabel="Log food"
         style={({ pressed }) => ({
-          position: "absolute", bottom: insets.bottom + 70, alignSelf: "center",
+          position: "absolute", bottom: insets.bottom + 28, alignSelf: "center",
           width: 58, height: 58, borderRadius: 29, backgroundColor: t.accent,
           alignItems: "center", justifyContent: "center",
           shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
@@ -166,6 +191,17 @@ function ProteinStreakCard({ todayStart }: { todayStart: number }) {
   const t = useTheme();
   const logs = useQuery(api.food.listFoodLogs);
   const settings = useQuery(api.settings.getAll);
+  const days = useMemo(() => {
+    const out: { key: number; label: string; cal: number; pro: number; items: NonNullable<typeof logs> }[] = [];
+    for (const l of logs ?? []) {
+      const key = dayKey(l.loggedAt);
+      let day = out[out.length - 1];
+      if (!day || day.key !== key) { day = { key, label: dayLabel(key, todayStart), cal: 0, pro: 0, items: [] }; out.push(day); }
+      day.cal += l.calories ?? 0; day.pro += l.protein ?? 0; day.items.push(l);
+    }
+    return out;
+  }, [logs, todayStart]);
+
   const proteinGoal = Number(settings?.proteinGoal) || 0;
 
   const byDay = useMemo(() => {
@@ -373,5 +409,37 @@ function AddFoodModal({ open, onClose }: { open: boolean; onClose: () => void })
         <Pill label="Cancel" kind="outline" onPress={onClose} />
       </View>
     </Modal>
+  );
+}
+
+// Past days collapse to one pill: label, count, totals. Tap to see the items
+// as text rows (no photos), long-press a row to delete it.
+function PastDayPill({ day, open, onToggle, onDelete }: {
+  day: { label: string; cal: number; pro: number; items: { _id: Id<"foodLogs">; name: string | null; calories: number | null; protein: number | null }[] };
+  open: boolean;
+  onToggle: () => void;
+  onDelete: (id: Id<"foodLogs">) => void;
+}) {
+  const t = useTheme();
+  return (
+    <View style={{ backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderColor: t.hairline, overflow: "hidden" }}>
+      <Pressable onPress={onToggle} style={({ pressed }) => ({
+        flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 14, opacity: pressed ? 0.7 : 1,
+      })}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Body size={14} style={{ fontFamily: fonts.sansSemiBold }}>{day.label}</Body>
+          <Body size={11} color={t.mutedFg}>{day.items.length} {day.items.length === 1 ? "item" : "items"}</Body>
+        </View>
+        <Num size={12} color={t.mutedFg}>{day.cal} cal · {round1(day.pro)}g</Num>
+        {open ? <ChevronUp size={16} color={t.mutedFg} /> : <ChevronDown size={16} color={t.mutedFg} />}
+      </Pressable>
+      {open && day.items.map((l) => (
+        <Pressable key={l._id} onLongPress={() => onDelete(l._id)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: t.hairline }}>
+          <Body size={13} numberOfLines={1} style={{ flex: 1 }}>{l.name || "Logged"}</Body>
+          <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+        </Pressable>
+      ))}
+    </View>
   );
 }

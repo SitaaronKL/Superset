@@ -77,12 +77,12 @@ export function RestDock({ seconds, startedAt, nextLabel, onSkip }: {
 
         {!done && (
           <Pressable onPress={() => setExtra((e) => e + 15)}
-            style={{ height: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
+            style={{ height: 36, paddingHorizontal: 12, borderRadius: 12, borderCurve: "continuous", borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
             <Num size={13}>+15</Num>
           </Pressable>
         )}
         <Pressable onPress={onSkip} accessibilityLabel={done ? "Dismiss" : "Skip rest"}
-          style={{ height: 36, width: 36, borderRadius: 999, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
+          style={{ height: 36, width: 36, borderRadius: 12, borderCurve: "continuous", borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
           <X size={15} color={t.fg} />
         </Pressable>
       </BlurView>
