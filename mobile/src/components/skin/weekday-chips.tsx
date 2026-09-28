@@ -34,7 +34,7 @@ export function WeekdayChips({ selected, onChange }: {
               backgroundColor: on ? t.label : t.elevated2,
             }}
           >
-            <T variant="footnote" color={on ? "#000000" : t.secondaryLabel} style={sf.semibold}>
+            <T variant="footnote" color={on ? t.inverseLabel : t.secondaryLabel} style={sf.semibold}>
               {d.label}
             </T>
           </Pressable>

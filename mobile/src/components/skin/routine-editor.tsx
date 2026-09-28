@@ -141,7 +141,7 @@ export function RoutineEditor({ scroll = true }: { scroll?: boolean }) {
             <T variant="body" color={t.label}>Routine start</T>
             <T variant="footnote">Ramp-up counts from this day.</T>
           </View>
-          <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+          <Host matchContents={{ vertical: true }} colorScheme={t.scheme} seedColor={t.accent} style={{ minHeight: 36 }}>
             <DatePicker
               title="Start date"
               selection={startDate ? dateFromKey(startDate) : new Date()}
@@ -334,7 +334,7 @@ function ProductSheet({ products, editing, onClose }: {
       <Field mono value={openedOn} onChangeText={setOpenedOn} placeholder="Opened on (YYYY-MM-DD)" />
       <Pill label={busy ? "Saving..." : "Save"} kind="primary" disabled={!name.trim() || busy} onPress={() => void save()} />
       {existing ? (
-        <Host matchContents colorScheme="dark">
+        <Host matchContents colorScheme={t.scheme}>
           <ConfirmationDialog
             title="Archive this product?"
             isPresented={confirm}
@@ -473,7 +473,7 @@ function StepSheet({ products, steps, editing, onClose }: {
       </View>
 
       <T variant="footnote">Slot</T>
-      <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+      <Host matchContents={{ vertical: true }} colorScheme={t.scheme} seedColor={t.accent} style={{ minHeight: 36 }}>
         <Picker<Slot>
           label="Slot"
           selection={slot}
@@ -491,7 +491,7 @@ function StepSheet({ products, steps, editing, onClose }: {
       <WeekdayChips selected={days} onChange={setDays} />
 
       <T variant="footnote">On a shave day</T>
-      <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+      <Host matchContents={{ vertical: true }} colorScheme={t.scheme} seedColor={t.accent} style={{ minHeight: 36 }}>
         <Picker<ShaveMode>
           label="Shave day"
           selection={shave}
@@ -513,7 +513,7 @@ function StepSheet({ products, steps, editing, onClose }: {
         onPress={() => void save()}
       />
       {existing ? (
-        <Host matchContents colorScheme="dark">
+        <Host matchContents colorScheme={t.scheme}>
           <ConfirmationDialog
             title="Delete this step?"
             isPresented={confirm}
@@ -570,7 +570,7 @@ function ChipRow({ values, selected, onChange }: {
               backgroundColor: on ? t.label : t.elevated2,
             }}
           >
-            <T variant="footnote" color={on ? "#000000" : t.secondaryLabel} style={sf.medium}>{v}</T>
+            <T variant="footnote" color={on ? t.inverseLabel : t.secondaryLabel} style={sf.medium}>{v}</T>
           </Pressable>
         );
       })}

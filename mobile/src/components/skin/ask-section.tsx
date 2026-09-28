@@ -8,7 +8,7 @@ import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import { SuggestionCard } from "@/components/ui/suggestion-card";
 import { T, gap, motion, radius, space, squircle, type } from "@/components/ui/kit";
-import { palette, sf, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 import { tap } from "@/lib/haptics";
 
 const SUGGESTIONS = [
@@ -50,7 +50,7 @@ export function AskSection({ dayKey }: { dayKey: string }) {
     <View style={{ gap: gap.group }}>
       {list.length > 0 ? (
         <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-          <Host matchContents colorScheme="dark" style={{ height: 22 }}>
+          <Host matchContents colorScheme={t.scheme} style={{ height: 22 }}>
             <ConfirmationDialog
               title="Clear questions?"
               isPresented={clearOpen}
@@ -168,7 +168,7 @@ export function AskSection({ dayKey }: { dayKey: string }) {
               transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
-            <SymbolView name="arrow.up" tintColor={palette.bg} weight="semibold" size={16} />
+            <SymbolView name="arrow.up" tintColor={t.bg} weight="semibold" size={16} />
           </Pressable>
         ) : null}
       </View>

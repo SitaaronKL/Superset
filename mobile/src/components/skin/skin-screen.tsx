@@ -2,8 +2,8 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useMutation, useQuery } from "convex/react";
 import { Host } from "@expo/ui";
-import { Button, Menu, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
-import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
+import { Button, Image as SwiftImage, Menu, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
+import { labelsHidden, pickerStyle, tag, tint, frame } from "@expo/ui/swift-ui/modifiers";
 import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
@@ -12,7 +12,7 @@ import {
   gap, space,
 } from "@/components/ui/kit";
 import { tap } from "@/lib/haptics";
-import { palette, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { formatLongDate, todayKey, weekdayNarrow } from "@/lib/day";
 import { AskSection } from "./ask-section";
 import { PhotosTab } from "./photos-strip";
@@ -31,6 +31,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export function SkinScreen() {
+  const t = useTheme();
   const pad = useScreenInsets();
   const dayKey = todayKey();
   const day = useQuery(api.skin.day, { dayKey });
@@ -60,13 +61,10 @@ export function SkinScreen() {
                 setAddPhotoOpen(true);
               }}
             />
-            <Host matchContents colorScheme="dark" style={{ width: 40, height: 40 }}>
+            {/* Fixed 40pt host with a native SwiftUI label, so the menu button sits inside the pill. */}
+            <Host colorScheme={t.scheme} style={{ width: 40, height: 40 }}>
               <Menu
-                label={
-                  <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-                    <SymbolView name="ellipsis" tintColor={palette.label} size={20} />
-                  </View>
-                }
+                label={<SwiftImage systemName="ellipsis" size={18} color={t.label} modifiers={[frame({ width: 40, height: 40 })]} />}
               >
                 <Button
                   label="My routine"
@@ -165,7 +163,7 @@ function TodayBody({ day, products }: {
           <T variant="headline">{hero}</T>
           <T variant="body" color={t.secondaryLabel}> · {rampLabel(day.rampWeek)}</T>
         </View>
-        <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+        <Host matchContents={{ vertical: true }} colorScheme={t.scheme} seedColor={t.accent} style={{ minHeight: 36 }}>
           <Picker<"shave" | "noshave">
             label="Shave"
             selection={day.shaved ? "shave" : "noshave"}
@@ -265,7 +263,7 @@ function WeekRings({ week }: { week: SkinDay["week"] }) {
               }}
             >
               {full ? (
-                <SymbolView name="checkmark" tintColor="#000000" weight="bold" size={9} />
+                <SymbolView name="checkmark" tintColor={t.inverseLabel} weight="bold" size={9} />
               ) : null}
               {some ? (
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.accentFg }} />

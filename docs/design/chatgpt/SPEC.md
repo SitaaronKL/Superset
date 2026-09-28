@@ -162,3 +162,11 @@ inverted for dark). Accent is used sparingly.
 - Toast: small glass pill at the top ("Message copied", "Saved"), auto-hides.
 - Share/preview sheet: circular X left, circular ? right, centered title,
   gray explanatory paragraph, a preview card, full-width accent button.
+
+## 12. The full library
+
+All 384 ChatGPT iOS screens (Mobbin export, Jun 2026) are in
+`docs/design/chatgpt/library/` (gitignored, 229 MB; re-export from Mobbin to
+restore). `docs/design/chatgpt/contact/sheet-00.jpg` to `sheet-15.jpg` show them
+24 at a time with their index numbers, for quick scanning. Light mode follows
+the same screens directly; dark mode maps them to the dark tokens.

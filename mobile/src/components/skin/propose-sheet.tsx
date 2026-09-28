@@ -245,7 +245,7 @@ export function ProposeSheet({ open, initialPath, onClose }: {
               </Section>
             );
           })}
-          <Host matchContents colorScheme="dark">
+          <Host matchContents colorScheme={t.scheme}>
             <ConfirmationDialog
               title="Replace your routine?"
               isPresented={confirmOpen}

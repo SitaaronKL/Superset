@@ -13,8 +13,6 @@ import { useTheme } from "@/lib/theme";
 // ChatGPT research-plan check: fills white with a black check. Spring + haptic
 // on complete. Reduced motion keeps the fill, drops the scale.
 
-const FILL = "#ffffff";
-const MARK = "#000000";
 
 export function CheckCircle({ checked, onToggle, label, interactive = true }: {
   checked: boolean;
@@ -61,13 +59,13 @@ export function CheckCircle({ checked, onToggle, label, interactive = true }: {
             width: 26,
             height: 26,
             borderRadius: 13,
-            backgroundColor: FILL,
+            backgroundColor: t.label,
           },
           fillStyle,
         ]}
       />
       {checked ? (
-        <SymbolView name="checkmark" tintColor={MARK} weight="bold" size={12} />
+        <SymbolView name="checkmark" tintColor={t.inverseLabel} weight="bold" size={12} />
       ) : null}
     </Animated.View>
   );

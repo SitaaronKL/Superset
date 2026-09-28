@@ -99,7 +99,7 @@ function PhotoThumb({ photo, size, onOpen }: {
   const deletePhoto = useMutation(api.skin.deletePhoto);
   const height = size * (4 / 3);
   return (
-    <Host matchContents colorScheme="dark" style={{ width: size, height }}>
+    <Host matchContents colorScheme={t.scheme} style={{ width: size, height }}>
       <ContextMenu>
         <ContextMenu.Trigger>
           <RNHostView matchContents>

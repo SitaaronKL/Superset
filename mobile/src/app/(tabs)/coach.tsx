@@ -152,7 +152,7 @@ function CoachThread({ error }: { error: string | null }) {
               }
             />
 
-            <ScreenFades topFade={CHROME_ROW + space[16]} bottom={false} />
+            <ScreenFades topFade={CHROME_ROW + space[40]} bottom={false} />
 
             <CoachChrome hasMessages={hasMessages} />
 

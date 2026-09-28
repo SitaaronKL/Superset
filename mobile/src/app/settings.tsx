@@ -14,7 +14,10 @@ import {
   gap, radius, space,
 } from "@/components/ui/kit";
 import { tap, warning } from "@/lib/haptics";
-import { accentFromSetting, useTheme } from "@/lib/theme";
+import { accentFromSetting, useTheme, type AppearancePref } from "@/lib/theme";
+import { Host } from "@expo/ui";
+import { Picker, Text as SwiftText } from "@expo/ui/swift-ui";
+import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
 
 // Same preset accents as the web app; the oklch strings are what's stored
 // in shared settings, the hexes are the native rendering.
@@ -247,6 +250,28 @@ export default function SettingsScreen() {
                 />
                 <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
               </View>
+            }
+          />
+          <Row
+            title="Appearance"
+            leading={<Leading name="circle.lefthalf.filled" />}
+            accessory={
+              // ChatGPT style: the current value with an up-down chevron, opening a native menu.
+              <Host matchContents colorScheme={t.scheme}>
+                <Picker<AppearancePref>
+                  label="Appearance"
+                  selection={t.appearance}
+                  onSelectionChange={(next) => {
+                    tap();
+                    void setSetting({ key: "theme", value: next });
+                  }}
+                  modifiers={[pickerStyle("menu"), labelsHidden(), tint(t.secondaryLabel)]}
+                >
+                  <SwiftText modifiers={[tag("system")]}>System</SwiftText>
+                  <SwiftText modifiers={[tag("light")]}>Light</SwiftText>
+                  <SwiftText modifiers={[tag("dark")]}>Dark</SwiftText>
+                </Picker>
+              </Host>
             }
           />
         </Section>
