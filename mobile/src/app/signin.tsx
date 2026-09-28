@@ -2,13 +2,16 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { Redirect } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Body, Display, Field, Pill } from "@/components/ui/kit";
-import { fonts, useTheme } from "@/lib/theme";
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Screen } from "@/components/screen";
+import { Display, Field, Pill, T, gap, space } from "@/components/ui/kit";
+import { tap } from "@/lib/haptics";
+import { useTheme } from "@/lib/theme";
 
 export default function SignIn() {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated } = useConvexAuth();
   const { signIn } = useAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
@@ -32,32 +35,86 @@ export default function SignIn() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+    <Screen>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 }}
+        behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
       >
-        <View style={{ flexDirection: "row", marginBottom: 4 }}>
-          <Display size={54}>Super</Display>
-          <Display size={54} color={t.accent}>set</Display>
-        </View>
-        <Body color={t.mutedFg} style={{ marginBottom: 24 }}>No excuses. Log, lift, progress.</Body>
-
-        <Field value={email} onChangeText={setEmail} placeholder="email" autoCapitalize="none"
-          keyboardType="email-address" autoComplete="email" style={{ height: 50 }} />
-        <Field value={password} onChangeText={setPassword} placeholder="password" secureTextEntry
-          style={{ height: 50 }} onSubmitEditing={submit} />
-        <Pill label={busy ? "..." : flow === "signIn" ? "ENTER" : "CREATE ACCOUNT"}
-          onPress={submit} disabled={busy} style={{ height: 50, marginTop: 4 }} />
-        {error && <Body color={t.destructive}>{error}</Body>}
-
-        <Text
-          onPress={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}
-          style={{ color: t.mutedFg, fontFamily: fonts.sans, fontSize: 13, textDecorationLine: "underline", marginTop: 16 }}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: gap.screen,
+            paddingTop: insets.top + space[24],
+            paddingBottom: insets.bottom + space[24],
+            gap: gap.group,
+          }}
         >
-          {flow === "signIn" ? "First time? Create the account" : "Already set up? Sign in"}
-        </Text>
+          <View>
+            <View style={{ flexDirection: "row" }}>
+              {/* optical: hero wordmark, above the 34 title step */}
+              <Display size={48}>Super</Display>
+              <Display size={48} color={t.accent}>set</Display>
+            </View>
+            <T variant="subhead" style={{ marginTop: space[8] }}>
+              No excuses. Log, lift, progress.
+            </T>
+          </View>
+
+          <View style={{ gap: gap.row, marginTop: space[8] }}>
+            <Field
+              value={email}
+              onChangeText={setEmail}
+              placeholder="email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+            <Field
+              value={password}
+              onChangeText={setPassword}
+              placeholder="password"
+              secureTextEntry
+              textContentType={flow === "signIn" ? "password" : "newPassword"}
+              onSubmitEditing={submit}
+              returnKeyType="go"
+            />
+          </View>
+
+          <Pill
+            label={busy ? "..." : flow === "signIn" ? "ENTER" : "CREATE ACCOUNT"}
+            onPress={submit}
+            disabled={busy}
+          />
+
+          {error ? <T variant="footnote" color={t.destructive}>{error}</T> : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={flow === "signIn" ? "Create the account" : "Sign in"}
+            hitSlop={8}
+            onPress={() => {
+              tap();
+              setFlow(flow === "signIn" ? "signUp" : "signIn");
+            }}
+            style={({ pressed }) => ({
+              alignSelf: "flex-start",
+              minHeight: 44,
+              justifyContent: "center",
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <T variant="footnote">
+              {flow === "signIn" ? "First time? Create the account" : "Already set up? Sign in"}
+            </T>
+          </Pressable>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
