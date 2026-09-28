@@ -7,10 +7,9 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { api } from "../../../convex/_generated/api";
-import { Screen } from "@/components/screen";
 import { Field, Section, Skeleton, T, gap, radius, space } from "@/components/ui/kit";
 import { tap, warning } from "@/lib/haptics";
-import { accentFromSetting, useTheme } from "@/lib/theme";
+import { palette, accentFromSetting, useTheme } from "@/lib/theme";
 
 // Same preset accents as the web app; the oklch strings are what's stored
 // in shared settings, the hexes are the native rendering.
@@ -130,6 +129,8 @@ function GoalRow({ label, settingKey, placeholder, current }: {
 
 function SheetHeader({ onDone }: { onDone: () => void }) {
   const t = useTheme();
+  // As a sheet the top inset is 0; opened full-screen (deep link) it clears the status bar.
+  const top = useSafeAreaInsets().top;
   return (
     <View
       style={{
@@ -137,7 +138,7 @@ function SheetHeader({ onDone }: { onDone: () => void }) {
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: gap.screen,
-        paddingTop: space[12],
+        paddingTop: Math.max(space[24], top + space[8]),
         paddingBottom: space[8],
       }}
     >
@@ -175,7 +176,7 @@ export default function SettingsScreen() {
 
   if (!settings) {
     return (
-      <Screen>
+      <View style={{ flex: 1, backgroundColor: palette.bg }}>
         <SheetHeader onDone={dismiss} />
         <View style={{ paddingHorizontal: gap.screen, gap: gap.section, paddingTop: space[8] }}>
           <Skeleton height={88} />
@@ -183,7 +184,7 @@ export default function SettingsScreen() {
           <Skeleton height={120} />
           <Skeleton height={44} />
         </View>
-      </Screen>
+      </View>
     );
   }
 
@@ -200,12 +201,13 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen>
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
       <SheetHeader onDone={dismiss} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
+        style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: gap.screen,
           paddingTop: space[8],
@@ -345,6 +347,6 @@ export default function SettingsScreen() {
           </Pressable>
         </Section>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
