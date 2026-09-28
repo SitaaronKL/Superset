@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BottomSheet, Host, RNHostView } from "@expo/ui";
+import { Host, RNHostView } from "@expo/ui";
 import { Button, ConfirmationDialog, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
-import { labelsHidden, pickerStyle, presentationBackground, tag, tint } from "@expo/ui/swift-ui/modifiers";
+import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { Sheet } from "@/components/ui/sheet";
+import { TrainDayRow, symbolForDay } from "@/components/ui/train-day-row";
 import { useMutation, useQuery } from "convex/react";
 import { SymbolView } from "expo-symbols";
 import Animated, {
@@ -25,7 +24,7 @@ import {
 } from "../../../../convex/engine";
 import { useRouter } from "expo-router";
 import {
-  Card, Display, Eyebrow, EmptyState, Field, IconButton, Num, Pill, Row, ScreenTitle, Section,
+  EmptyState, Eyebrow, Field, FloatingAction, GlassPill, IconButton, Num, Pill, ScreenTitle, Section,
   Skeleton, Stat, T,
   gap, motion, radius, space, squircle, type,
 } from "@/components/ui/kit";
@@ -35,14 +34,18 @@ import { success, tap } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
 const FATIGUE = [
-  { id: "ez", label: "EZ" },
-  { id: "struggle", label: "HARD" },
-  { id: "failure", label: "FAIL" },
-  { id: "tooTired", label: "DEAD" },
+  { id: "ez", label: "Easy" },
+  { id: "struggle", label: "Hard" },
+  { id: "failure", label: "Fail" },
+  { id: "tooTired", label: "Tired" },
 ] as const;
 type FatigueId = (typeof FATIGUE)[number]["id"];
 
 const SET_LAYOUT = LinearTransition.duration(motion.duration.base);
+/** Matches `TAB_BAR` in screen.tsx so the floating action sits above the tab bar. */
+const TAB_BAR = 84;
+
+const exerciseCount = (n: number) => (n === 1 ? "1 exercise" : `${n} exercises`);
 
 export default function TrainScreen() {
   const session = useQuery(api.workouts.activeSession);
@@ -65,8 +68,8 @@ export default function TrainScreen() {
           }}
         >
           <ScreenTitle title="Train" subtitle={monthName} accessory={<SettingsGear />} />
-          <Skeleton height={160} />
-          <Skeleton height={88} />
+          <Skeleton height={120} />
+          <Skeleton height={72} />
           <View style={{ flexDirection: "row", gap: gap.group }}>
             <Skeleton height={72} style={{ flex: 1 }} />
             <Skeleton height={72} style={{ flex: 1 }} />
@@ -84,12 +87,14 @@ export default function TrainScreen() {
 function SettingsGear() {
   const router = useRouter();
   return (
-    <IconButton
-      name="gearshape"
-      variant="glass"
-      accessibilityLabel="Settings"
-      onPress={() => router.push("/settings")}
-    />
+    <GlassPill>
+      <IconButton
+        name="gearshape"
+        variant="plain"
+        accessibilityLabel="Settings"
+        onPress={() => router.push("/settings")}
+      />
+    </GlassPill>
   );
 }
 
@@ -124,10 +129,8 @@ function nextProgramDay(
 }
 
 function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName: string }) {
-  const t = useTheme();
   const insets = useSafeAreaInsets();
   const pad = useScreenInsets();
-  const { width: windowWidth } = useWindowDimensions();
   const [bounds] = useState(() => monthBounds(new Date()));
   const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
   const lastMonth = useQuery(api.workouts.rangeStats, { start: bounds.prevStart, end: bounds.prevEnd });
@@ -137,11 +140,7 @@ function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName:
 
   const nextDay = useMemo(() => nextProgramDay(days, recent), [days, recent]);
   const trained = weekHits((recent ?? []).filter((s) => s.status === "done").map((s) => s.date));
-
-  const openPicker = () => {
-    tap();
-    setPickOpen(true);
-  };
+  const pickLabel = days.length > 0 ? "Pick day" : "Start";
 
   return (
     <Screen>
@@ -149,104 +148,96 @@ function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName:
         contentContainerStyle={{
           paddingHorizontal: gap.screen,
           paddingTop: pad.top,
-          paddingBottom: pad.bottom,
-          gap: gap.group,
+          paddingBottom: pad.bottom + space[56],
+          gap: gap.section,
         }}
       >
         <ScreenTitle title="Train" subtitle={monthName} accessory={<SettingsGear />} />
 
-        <View style={{ gap: gap.section }}>
-          {recent === undefined ? (
-            <Skeleton height={160} />
-          ) : nextDay ? (
-            <Card>
-              <Eyebrow>Next up</Eyebrow>
-              <T variant="title2">{nextDay.name}</T>
-              <T variant="footnote">{nextDay.exerciseIds.length} exercises</T>
-              <Pill
-                label="Start"
-                kind="primary"
-                onPress={() => void start({ programDayId: nextDay._id })}
-                style={{ alignSelf: "stretch" }}
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Pick another day"
-                onPress={openPicker}
-                hitSlop={8}
-                style={({ pressed }) => ({
-                  alignSelf: "center",
-                  paddingVertical: space[4],
-                  opacity: pressed ? 0.72 : 1,
-                })}
-              >
-                <T variant="footnote">Pick another day</T>
-              </Pressable>
-            </Card>
-          ) : (
-            <EmptyState
-              symbol="dumbbell.fill"
-              title="No program days"
-              message="Start a freestyle session with no template."
-              action={{ label: "Start", onPress: () => void start({}) }}
+        {recent === undefined ? (
+          <Skeleton height={120} />
+        ) : nextDay ? (
+          <View style={{ gap: space[8] }}>
+            <T variant="headline">Next up</T>
+            <T variant="title2">{nextDay.name}</T>
+            <T variant="subhead">{exerciseCount(nextDay.exerciseIds.length)}</T>
+            <Pill
+              label="Start"
+              kind="primary"
+              onPress={() => void start({ programDayId: nextDay._id })}
+              style={{ alignSelf: "flex-start" }}
             />
-          )}
+          </View>
+        ) : (
+          <EmptyState
+            symbol="dumbbell.fill"
+            title="No program days"
+            message="Start a freestyle session with no template."
+          />
+        )}
 
-          <Card>
-            <Eyebrow>This week</Eyebrow>
-            <WeekDots hits={trained} />
-          </Card>
-
-          {thisMonth && lastMonth ? (
-            <Card style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Stat
-                label="Workouts"
-                value={thisMonth.workouts}
-                delta={monthDelta(thisMonth.workouts, lastMonth.workouts)}
-                style={{ flex: 1 }}
-              />
-              <Stat
-                label="Sets"
-                value={thisMonth.sets}
-                delta={monthDelta(thisMonth.sets, lastMonth.sets)}
-                style={{ flex: 1 }}
-              />
-              <Stat
-                label="Volume"
-                value={thisMonth.volume}
-                delta={monthDelta(thisMonth.volume, lastMonth.volume)}
-                format={fmtVolume}
-                style={{ flex: 1 }}
-              />
-            </Card>
-          ) : (
-            <Card style={{ flexDirection: "row", gap: gap.group }}>
-              <Skeleton height={72} style={{ flex: 1 }} />
-              <Skeleton height={72} style={{ flex: 1 }} />
-              <Skeleton height={72} style={{ flex: 1 }} />
-            </Card>
-          )}
+        <View style={{ gap: space[12] }}>
+          <T variant="headline">This week</T>
+          <WeekDots hits={trained} />
         </View>
+
+        {thisMonth && lastMonth ? (
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Stat
+              label="Workouts"
+              value={thisMonth.workouts}
+              delta={monthDelta(thisMonth.workouts, lastMonth.workouts)}
+              style={{ flex: 1 }}
+            />
+            <Stat
+              label="Sets"
+              value={thisMonth.sets}
+              delta={monthDelta(thisMonth.sets, lastMonth.sets)}
+              style={{ flex: 1 }}
+            />
+            <Stat
+              label="Volume"
+              value={thisMonth.volume}
+              delta={monthDelta(thisMonth.volume, lastMonth.volume)}
+              format={fmtVolume}
+              style={{ flex: 1 }}
+            />
+          </View>
+        ) : (
+          <View style={{ flexDirection: "row", gap: gap.group }}>
+            <Skeleton height={72} style={{ flex: 1 }} />
+            <Skeleton height={72} style={{ flex: 1 }} />
+            <Skeleton height={72} style={{ flex: 1 }} />
+          </View>
+        )}
       </ScrollView>
       <ScreenFades />
 
-      {/* Day picker: fits its rows; swipe or tap outside dismisses. */}
+      <FloatingAction
+        icon="plus"
+        label={pickLabel}
+        bottom={insets.bottom + TAB_BAR + space[8]}
+        onPress={() => setPickOpen(true)}
+      />
+
       <Sheet isPresented={pickOpen} onDismiss={() => setPickOpen(false)} title="What are we training?">
-        <Section>
+        <View>
           {days.map((d) => (
-            <Row
+            <TrainDayRow
               key={d._id}
               title={d.name}
-              value={`${d.exerciseIds.length} exercises`}
+              subtitle={exerciseCount(d.exerciseIds.length)}
+              symbol={symbolForDay(d.name)}
               onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
             />
           ))}
-          <Row
+          <TrainDayRow
             title="Freestyle session"
             subtitle="No template"
+            symbol="plus"
             onPress={() => { setPickOpen(false); void start({}); }}
           />
-        </Section>
+        </View>
       </Sheet>
     </Screen>
   );
@@ -336,20 +327,12 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
           >
             <ConfirmationDialog.Trigger>
               <RNHostView matchContents>
-                <Pressable
-                  onPress={leave}
+                <IconButton
+                  name="chevron.left"
+                  variant="glass"
                   accessibilityLabel="Back"
-                  hitSlop={8}
-                  style={({ pressed }) => ({
-                    width: 40, height: 40, borderRadius: 20,
-                    backgroundColor: t.elevated2,
-                    alignItems: "center", justifyContent: "center",
-                    opacity: pressed ? 0.72 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
-                >
-                  <SymbolView name="chevron.left" size={20} tintColor={t.label} weight="regular" />
-                </Pressable>
+                  onPress={leave}
+                />
               </RNHostView>
             </ConfirmationDialog.Trigger>
             <ConfirmationDialog.Message>
@@ -365,11 +348,10 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         <T variant="title2" style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</T>
         <IconButton
           name="checkmark"
-          variant="plain"
+          variant="glass"
           accessibilityLabel="Finish"
           disabled={sets === undefined}
           onPress={() => void finish({ sessionId: session._id })}
-          style={{ backgroundColor: t.elevated2 }}
         />
       </View>
 
@@ -384,7 +366,6 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (f: FatigueId | null) => void }) {
   const t = useTheme();
   const danger = value === "failure" || value === "tooTired";
-  // Segmented pickers stay on the selected segment, so None is the clear.
   return (
     <Host matchContents={{ vertical: true }} colorScheme="dark" style={{ minHeight: 34, backgroundColor: "transparent" }}>
       <Picker<FatigueId | "none">
@@ -400,11 +381,6 @@ function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (
       </Picker>
     </Host>
   );
-}
-
-function Hairline() {
-  const t = useTheme();
-  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.separator }} />;
 }
 
 function FreshPop({ fresh, children }: { fresh: boolean; children: ReactNode }) {
@@ -446,9 +422,10 @@ function SetRow({
       alignItems: "center",
       gap: space[12],
       paddingVertical: space[8],
+      paddingHorizontal: space[16],
       opacity: dim ? 0.55 : 1,
     }}>
-      <Eyebrow style={{ width: 44 }}>{label}</Eyebrow>
+      <Eyebrow style={{ width: 52 }}>{label}</Eyebrow>
       <Num size={type.subhead.fontSize} weight="semibold" color={dim ? t.secondaryLabel : t.label}>{detail}</Num>
       {meta}
     </View>
@@ -504,32 +481,35 @@ function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest 
   const [justLoggedId, setJustLoggedId] = useState<Id<"sets"> | null>(null);
 
   const workingDone = sets.filter((s) => !s.isWarmup).length;
+  const done = sets.length > 0;
+
+  const titleRow = (
+    <Pressable
+      onPress={() => { tap(); onActivate(); }}
+      style={({ pressed }) => ({
+        minHeight: 52,
+        paddingVertical: space[12],
+        paddingHorizontal: space[16],
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space[12],
+        backgroundColor: pressed ? t.elevated2 : "transparent",
+      })}
+    >
+      <T variant="headline" style={{ flex: 1 }} numberOfLines={2}>{exercise.name}</T>
+      <T variant="footnote">
+        {isActive
+          ? `${exercise.repRangeMin}-${exercise.repRangeMax} reps`
+          : done ? `${workingDone} sets` : "Tap to start"}
+      </T>
+      {!isActive && (
+        <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
+      )}
+    </Pressable>
+  );
 
   if (!isActive) {
-    const done = sets.length > 0;
-    return (
-      <Pressable
-        onPress={() => { tap(); onActivate(); }}
-        style={({ pressed }) => ({
-          backgroundColor: pressed ? t.elevated2 : t.elevated,
-          borderRadius: radius.card,
-          ...squircle,
-          padding: space[16],
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: space[12],
-        })}
-      >
-        <T variant="headline" style={{ flex: 1 }}>{exercise.name}</T>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
-          {done
-            ? <T variant="footnote">{workingDone} sets</T>
-            : <T variant="footnote">tap to start</T>}
-          <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
-        </View>
-      </Pressable>
-    );
+    return <Section>{titleRow}</Section>;
   }
 
   const last: SetRecord[] = (lastSets ?? []) as SetRecord[];
@@ -579,73 +559,48 @@ function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest 
   const workingRows = loggedWorking.map((s, i) => ({ set: s, index: i }));
 
   return (
-    <View style={{
-      backgroundColor: t.elevated,
-      borderRadius: radius.card,
-      ...squircle,
-      padding: space[16],
-      gap: gap.row,
-    }}>
-      <Pressable onPress={() => { tap(); onActivate(); }} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: space[12] }}>
-        <T variant="headline" style={{ flex: 1 }}>{exercise.name}</T>
-        <T variant="footnote">{exercise.repRangeMin}-{exercise.repRangeMax} reps</T>
-      </Pressable>
-
-      {warmupRows.length > 0 && (
-        <Animated.View layout={SET_LAYOUT}>
-          {warmupRows.map((row, i) => (
-            <View key={row.key}>
-              {i > 0 ? <Hairline /> : null}
-              {row.kind === "logged" ? (
-                <SetRow
-                  label="Warm"
-                  detail={`${row.set.weight} × ${row.set.reps}`}
-                  fresh={row.set._id === justLoggedId}
-                  onLongPress={() => confirmDelete(row.set._id)}
-                />
-              ) : (
-                <SetRow
-                  label="Warm"
-                  detail={`${row.tg.weight} × ${row.tg.reps}`}
-                  dim
-                  meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>tap to log</T>}
-                  onPress={() => void logSuggested(row.tg, true)}
-                />
-              )}
-            </View>
-          ))}
+    <Section>
+      {titleRow}
+      {warmupRows.map((row) => (
+        <Animated.View key={row.key} layout={SET_LAYOUT}>
+          {row.kind === "logged" ? (
+            <SetRow
+              label="Warm"
+              detail={`${row.set.weight} × ${row.set.reps}`}
+              fresh={row.set._id === justLoggedId}
+              onLongPress={() => confirmDelete(row.set._id)}
+            />
+          ) : (
+            <SetRow
+              label="Warm"
+              detail={`${row.tg.weight} × ${row.tg.reps}`}
+              dim
+              meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>Tap to log</T>}
+              onPress={() => void logSuggested(row.tg, true)}
+            />
+          )}
         </Animated.View>
-      )}
-
-      {workingRows.length > 0 && (
-        <Animated.View layout={SET_LAYOUT}>
-          {workingRows.map((row, i) => (
-            <View key={row.set._id}>
-              {i > 0 ? <Hairline /> : null}
-              <SetRow
-                label={`Set ${row.index + 1}`}
-                detail={`${row.set.weight} × ${row.set.reps}`}
-                fresh={row.set._id === justLoggedId}
-                meta={row.set.fatigue ? <FatigueChip fatigue={row.set.fatigue} /> : null}
-                onLongPress={() => confirmDelete(row.set._id)}
-              />
-            </View>
-          ))}
+      ))}
+      {workingRows.map((row) => (
+        <Animated.View key={row.set._id} layout={SET_LAYOUT}>
+          <SetRow
+            label={`Set ${row.index + 1}`}
+            detail={`${row.set.weight} × ${row.set.reps}`}
+            fresh={row.set._id === justLoggedId}
+            meta={row.set.fatigue ? <FatigueChip fatigue={row.set.fatigue} /> : null}
+            onLongPress={() => confirmDelete(row.set._id)}
+          />
         </Animated.View>
-      )}
-
-      {/* Coach block: the engine's prescription is the focal point */}
-      <View style={{ backgroundColor: t.accentTint, borderRadius: radius.control, ...squircle, padding: space[12], gap: gap.row }}>
+      ))}
+      <View style={{ padding: space[16], gap: gap.row }}>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: space[8] }}>
-          <Eyebrow>Target</Eyebrow>
-          {ghost && <T variant="footnote">last {ghost.weight} × {ghost.reps}</T>}
-          <Eyebrow style={{ marginLeft: "auto" }}>set {workingDone + 1}</Eyebrow>
+          {ghost && <T variant="footnote">Last {ghost.weight} × {ghost.reps}</T>}
+          <T variant="footnote" style={{ marginLeft: "auto" }}>Set {workingDone + 1}</T>
         </View>
         {target.weight > 0 ? (
           <Pressable onPress={() => { setWeight(String(target.weight)); setReps(String(target.reps)); }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: space[8] }}>
-              {/* 38 keeps the set-target hero at its established size, a step above title. */}
-              <Display size={38}>{target.weight}</Display>
+              <Num size={48} weight="semibold">{target.weight}</Num>
               <T variant="title2" color={t.secondaryLabel}>× {target.reps}</T>
             </View>
             <T variant="footnote">{recReason}. Tap to use</T>
@@ -666,23 +621,16 @@ function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest 
           <Pill label="Warm" kind="outline" onPress={() => void submit(true)} disabled={!weight || !reps} haptic={false} />
         </View>
       </View>
-
-      {futureTargets.length > 0 && (
-        <View>
-          {futureTargets.map((tg, i) => (
-            <View key={`ft${i}`}>
-              {i > 0 ? <Hairline /> : null}
-              <SetRow
-                label={`Set ${workingDone + 2 + i}`}
-                detail={tg.weight > 0 ? `${tg.weight} × ${tg.reps}` : "·"}
-                dim
-                meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>planned</T>}
-              />
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
+      {futureTargets.map((tg, i) => (
+        <SetRow
+          key={`ft${i}`}
+          label={`Set ${workingDone + 2 + i}`}
+          detail={tg.weight > 0 ? `${tg.weight} × ${tg.reps}` : "·"}
+          dim
+          meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>Planned</T>}
+        />
+      ))}
+    </Section>
   );
 
   function confirmDelete(setId: Id<"sets">) {
