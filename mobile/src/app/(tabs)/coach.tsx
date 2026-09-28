@@ -31,7 +31,7 @@ import type { Doc } from "../../../../convex/_generated/dataModel";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { GlassPill, IconButton, T, gap, motion, space, squircle, type } from "@/components/ui/kit";
 import { SuggestionCard } from "@/components/ui/suggestion-card";
-import { sf, palette, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 import { tap, warning } from "@/lib/haptics";
 import { todayKey } from "@/lib/day";
 
@@ -319,7 +319,7 @@ function NewChatButton({ hasMessages }: { hasMessages: boolean }) {
   if (!hasMessages) return button;
 
   return (
-    <Host matchContents colorScheme="dark" style={{ width: 40, height: 40 }}>
+    <Host matchContents colorScheme={t.scheme} style={{ width: 40, height: 40 }}>
       <ConfirmationDialog
         title="Clear chat?"
         isPresented={open}
@@ -351,6 +351,7 @@ function NewChatButton({ hasMessages }: { hasMessages: boolean }) {
 }
 
 function SendButton() {
+  const t = useTheme();
   const canSend = useAuiState((s) => s.composer.canSend ?? false);
   if (!canSend) return null;
   return (
@@ -361,7 +362,7 @@ function SendButton() {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: palette.label,
+        backgroundColor: t.label,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.78 : 1,
@@ -371,7 +372,7 @@ function SendButton() {
       <SymbolView
         name="arrow.up"
         size={16}
-        tintColor={palette.bg}
+        tintColor={t.bg}
         weight="semibold"
         resizeMode="scaleAspectFit"
       />
@@ -415,13 +416,14 @@ function ThinkingDot() {
 // Messages fade into the page behind the composer and tab bar instead of
 // stopping at a hard black band.
 function BottomFade() {
+  const t = useTheme();
   return (
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
         <LinearGradient id="coachFade" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={palette.bg} stopOpacity={0} />
-          <Stop offset="0.45" stopColor={palette.bg} stopOpacity={0.85} />
-          <Stop offset="1" stopColor={palette.bg} stopOpacity={1} />
+          <Stop offset="0" stopColor={t.bg} stopOpacity={0} />
+          <Stop offset="0.45" stopColor={t.bg} stopOpacity={0.85} />
+          <Stop offset="1" stopColor={t.bg} stopOpacity={1} />
         </LinearGradient>
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill="url(#coachFade)" />

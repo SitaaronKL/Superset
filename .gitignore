@@ -43,3 +43,4 @@ design-inspo/
 
 # per-user Superset overrides
 .superset/config.local.json
+docs/design/chatgpt/library/

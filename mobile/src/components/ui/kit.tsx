@@ -160,7 +160,7 @@ export function Pill({ label, onPress, kind = "primary", disabled, style, haptic
 }) {
   const t = useTheme();
   const bg = kind === "primary" ? t.label : kind === "accent" ? t.accent : "transparent";
-  const fg = kind === "primary" ? "#000000" : kind === "accent" ? t.accentFg : t.label;
+  const fg = kind === "primary" ? t.inverseLabel : kind === "accent" ? t.accentFg : t.label;
   return (
     <Pressable
       accessibilityRole="button"
@@ -351,7 +351,7 @@ export function IconButton({
   return (
     <GlassView
       isInteractive
-      colorScheme="dark"
+      colorScheme={t.scheme}
       style={{ width: dim, height: dim, borderRadius: dim / 2 }}
     >
       {inner}
@@ -371,7 +371,7 @@ export function GlassPill({ children, style }: { children: ReactNode; style?: St
     return <View style={[{ borderRadius: 22, backgroundColor: t.elevated }, style]}>{row}</View>;
   }
   return (
-    <GlassView isInteractive colorScheme="dark" style={[{ borderRadius: 22 }, style]}>
+    <GlassView isInteractive colorScheme={t.scheme} style={[{ borderRadius: 22 }, style]}>
       {row}
     </GlassView>
   );
@@ -397,7 +397,7 @@ export function FloatingAction({ icon, label, onPress, bottom, accessibilityLabe
         flexDirection: "row", alignItems: "center", gap: space[8],
         height: 48, paddingHorizontal: space[20], borderRadius: 24,
         backgroundColor: t.elevated2,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+        boxShadow: t.isDark ? "0 8px 24px rgba(0,0,0,0.45)" : "0 6px 20px rgba(0,0,0,0.14)",
         opacity: pressed ? 0.8 : 1,
       })}
     >

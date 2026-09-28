@@ -51,7 +51,7 @@ export function RestDock({ seconds, startedAt, nextLabel, onSkip }: {
   return (
     <View pointerEvents="box-none"
       style={{ position: "absolute", left: 16, right: 16, bottom: insets.bottom + 64 }}>
-      <BlurView intensity={40} tint="systemChromeMaterialDark"
+      <BlurView intensity={40} tint={t.isDark ? "systemChromeMaterialDark" : "systemChromeMaterialLight"}
         style={{
           borderRadius: 22, overflow: "hidden", flexDirection: "row", alignItems: "center",
           gap: 12, padding: 12, borderWidth: 1, borderColor: t.hairline,

@@ -111,7 +111,7 @@ export default function SignIn() {
               opacity: busy ? 0.6 : pressed ? 0.78 : 1,
             })}
           >
-            <T variant="headline" color={valid ? "#000000" : t.tertiaryLabel}>
+            <T variant="headline" color={valid ? t.inverseLabel : t.tertiaryLabel}>
               Continue
             </T>
           </Pressable>

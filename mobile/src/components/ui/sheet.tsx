@@ -3,7 +3,7 @@ import { ScrollView, View, useWindowDimensions } from "react-native";
 import { BottomSheet, RNHostView } from "@expo/ui";
 import { presentationBackground } from "@expo/ui/swift-ui/modifiers";
 import { T } from "@/components/ui/kit";
-import { palette, space } from "@/lib/theme";
+import { space, useTheme } from "@/lib/theme";
 
 // The one bottom sheet every screen uses. Spacing and color live here so no
 // sheet can drift:
@@ -40,12 +40,13 @@ export function Sheet({
   children: ReactNode;
 }) {
   const { width, height } = useWindowDimensions();
+  const t = useTheme();
   const bottom = BOTTOM;
 
   const header = title ? (
     <View style={{ gap: space[4], marginBottom: space[4] }}>
       <T variant="title2">{title}</T>
-      {subtitle ? <T variant="subhead" color={palette.secondaryLabel}>{subtitle}</T> : null}
+      {subtitle ? <T variant="subhead" color={t.secondaryLabel}>{subtitle}</T> : null}
     </View>
   ) : null;
 
@@ -55,7 +56,7 @@ export function Sheet({
       onDismiss={onDismiss}
       showDragIndicator
       snapPoints={scroll ? [{ fraction }] : undefined}
-      modifiers={[presentationBackground(palette.sheet)]}
+      modifiers={[presentationBackground(t.sheet)]}
     >
       <RNHostView matchContents>
         {scroll ? (

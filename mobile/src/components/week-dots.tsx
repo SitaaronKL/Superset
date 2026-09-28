@@ -26,7 +26,7 @@ export function WeekDots({ hits, size = 30 }: { hits: boolean[]; size?: number }
                 ...(isToday ? { shadowColor: "transparent", borderColor: t.accent, borderWidth: 2 } : {}),
               }}
             >
-              {hit && <Check size={size * 0.45} strokeWidth={3} color="#000" />}
+              {hit && <Check size={size * 0.45} strokeWidth={3} color={t.inverseLabel} />}
             </View>
             <Text style={{ color: t.mutedFg, fontSize: 11, ...sf.regular }}>{label}</Text>
           </View>

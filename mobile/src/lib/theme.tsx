@@ -1,10 +1,12 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
+import { Appearance, useColorScheme } from "react-native";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
-// Superset visual identity, translated to native. Dark-only. Values mirror
-// the web app's oklch tokens as hex; the accent comes from shared Convex
-// settings (stored as oklch strings) and is mapped here.
+// Superset visual identity, translated to native. Light and dark, following the
+// ChatGPT iOS app. The accent comes from shared Convex settings (stored as oklch
+// strings) and is mapped here. The appearance setting ("system" | "light" |
+// "dark", key `theme`) drives both these tokens and native UIKit via Appearance.
 
 // SF Pro (the iOS system font) everywhere, like ChatGPT. Weight carries
 // hierarchy; numbers use tabular figures instead of a monospace font.
@@ -21,7 +23,10 @@ export const sf = {
 // Surfaces step clearly in luminance so cards read without borders.
 // Keep legacy keys (card, fg, mutedFg, hairline, border, muted) so existing
 // screens keep compiling while new code uses the semantic names.
-export const palette = {
+export const darkPalette = {
+  scheme: "dark" as "light" | "dark",
+  // Text/icons on a `label`-filled surface (the primary pill button).
+  inverseLabel: "#000000",
   bg: "#000000",
   groupedBg: "#0c0c0e",
   // Bottom sheets: one step above the page so a sheet reads as lifted, below cards so cards inside still read.
@@ -42,6 +47,32 @@ export const palette = {
   border: "rgba(255,255,255,0.14)",
   hairline: "rgba(235,235,245,0.12)",
 };
+
+// ChatGPT light: white pages, iOS system gray cards, black primary buttons.
+export const lightPalette: typeof darkPalette = {
+  scheme: "light",
+  inverseLabel: "#ffffff",
+  bg: "#ffffff",
+  groupedBg: "#f2f2f7",
+  sheet: "#ffffff",
+  elevated: "#f2f2f7",
+  elevated2: "#e5e5ea",
+  separator: "rgba(60,60,67,0.18)",
+  label: "#000000",
+  secondaryLabel: "rgba(60,60,67,0.60)",
+  tertiaryLabel: "rgba(60,60,67,0.30)",
+  success: "#34c759",
+  destructive: "#ff3b30",
+  card: "#f2f2f7",
+  muted: "#f2f2f7",
+  mutedFg: "rgba(60,60,67,0.60)",
+  fg: "#000000",
+  border: "rgba(60,60,67,0.16)",
+  hairline: "rgba(60,60,67,0.18)",
+};
+
+/** @deprecated Static dark tokens. Use `useTheme()` so light mode works. */
+export const palette = darkPalette;
 
 export const space = {
   4: 4,
@@ -123,25 +154,44 @@ export function accentFromSetting(setting?: string | null) {
   return { hex: DEFAULT_ACCENT.hex, fg: l > 0.7 ? "#000000" : "#ffffff" };
 }
 
+export type AppearancePref = "system" | "light" | "dark";
+
 type Theme = {
   accent: string;
   accentFg: string;
   accentTint: string;
-} & typeof palette;
+  isDark: boolean;
+  appearance: AppearancePref;
+} & typeof darkPalette;
 
 const ThemeContext = createContext<Theme>({
-  ...palette,
+  ...darkPalette,
   accent: DEFAULT_ACCENT.hex,
   accentFg: DEFAULT_ACCENT.fg,
   accentTint: DEFAULT_ACCENT.hex + "24",
+  isDark: true,
+  appearance: "system",
 });
+
+export function parseAppearance(v?: string | null): AppearancePref {
+  return v === "light" || v === "dark" ? v : "system";
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const settings = useQuery(api.settings.getAll);
+  const pref = parseAppearance(settings?.theme);
+  // Force UIKit (tab bar, sheets, glass, pickers) to the chosen appearance;
+  // "unspecified" hands control back to the system setting.
+  useEffect(() => {
+    Appearance.setColorScheme(pref === "system" ? "unspecified" : pref);
+  }, [pref]);
+  const system = useColorScheme();
+  const isDark = pref === "system" ? system !== "light" : pref === "dark";
+  const base = isDark ? darkPalette : lightPalette;
   const a = accentFromSetting(settings?.accent);
   return (
     <ThemeContext.Provider
-      value={{ ...palette, accent: a.hex, accentFg: a.fg, accentTint: a.hex + "24" }}
+      value={{ ...base, accent: a.hex, accentFg: a.fg, accentTint: a.hex + (isDark ? "24" : "1f"), isDark, appearance: pref }}
     >
       {children}
     </ThemeContext.Provider>

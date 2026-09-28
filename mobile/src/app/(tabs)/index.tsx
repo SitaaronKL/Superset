@@ -316,7 +316,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
         flexDirection: "row", alignItems: "center", gap: space[12],
         paddingHorizontal: gap.screen, paddingVertical: space[8],
       }}>
-        <Host matchContents colorScheme="dark" seedColor={t.accent} style={{ width: 40, height: 40 }}>
+        <Host matchContents colorScheme={t.scheme} seedColor={t.accent} style={{ width: 40, height: 40 }}>
           <ConfirmationDialog
             title="Leave this session?"
             isPresented={leaveOpen}
@@ -365,7 +365,7 @@ function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (
   const t = useTheme();
   const danger = value === "failure" || value === "tooTired";
   return (
-    <Host matchContents={{ vertical: true }} colorScheme="dark" style={{ minHeight: 34, backgroundColor: "transparent" }}>
+    <Host matchContents={{ vertical: true }} colorScheme={t.scheme} style={{ minHeight: 34, backgroundColor: "transparent" }}>
       <Picker<FatigueId | "none">
         label="Effort"
         selection={value ?? "none"}

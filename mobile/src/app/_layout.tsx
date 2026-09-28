@@ -6,7 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { View } from "react-native";
-import { ThemeProvider, palette, radius } from "@/lib/theme";
+import { ThemeProvider, radius, useTheme } from "@/lib/theme";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -29,31 +29,39 @@ export default function RootLayout() {
   return (
     <ConvexAuthProvider client={convex} storage={secureStorage}>
       <ThemeProvider>
-        <View style={{ flex: 1, backgroundColor: palette.bg }}>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: palette.bg },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="signin" />
-            <Stack.Screen
-              name="settings"
-              options={{
-                presentation: "formSheet",
-                headerShown: false,
-                sheetGrabberVisible: true,
-                sheetAllowedDetents: [1],
-                sheetCornerRadius: radius.sheet,
-                contentStyle: { backgroundColor: palette.bg },
-              }}
-            />
-            <Stack.Screen name="skin" />
-          </Stack>
-        </View>
+        <ThemedShell />
       </ThemeProvider>
     </ConvexAuthProvider>
+  );
+}
+
+// Reads the active theme so the page color and status bar follow light/dark.
+function ThemedShell() {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <StatusBar style={t.isDark ? "light" : "dark"} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: t.bg },
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="signin" />
+        <Stack.Screen
+          name="settings"
+          options={{
+            presentation: "formSheet",
+            headerShown: false,
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: [1],
+            sheetCornerRadius: radius.sheet,
+            contentStyle: { backgroundColor: t.bg },
+          }}
+        />
+        <Stack.Screen name="skin" />
+      </Stack>
+    </View>
   );
 }

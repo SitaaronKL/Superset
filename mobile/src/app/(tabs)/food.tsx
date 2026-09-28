@@ -184,8 +184,9 @@ function EntryMenu({ onDelete, children, style }: {
   children: ReactElement;
   style?: StyleProp<ViewStyle>;
 }) {
+  const t = useTheme();
   return (
-    <Host matchContents={{ vertical: true }} colorScheme="dark" style={style}>
+    <Host matchContents={{ vertical: true }} colorScheme={t.scheme} style={style}>
       <ContextMenu>
         <ContextMenu.Trigger>
           <RNHostView matchContents>{children}</RNHostView>
