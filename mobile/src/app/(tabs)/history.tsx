@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BottomSheet } from "@expo/ui";
-import { RNHostView } from "@expo/ui/swift-ui";
-import { presentationBackground } from "@expo/ui/swift-ui/modifiers";
 import { SymbolView } from "expo-symbols";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -26,24 +23,29 @@ import {
   squircle,
   type,
 } from "@/components/ui/kit";
+import { Sheet, useSheetContentWidth } from "@/components/ui/sheet";
 import { SparkLine } from "@/components/spark-line";
-import { palette, useTheme } from "@/lib/theme";
+import { tap } from "@/lib/haptics";
+import { useTheme } from "@/lib/theme";
 
 const monthKey = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 const dayLabel = (d: number) => new Date(d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const shortDate = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const weekday = (d: number) => new Date(d).toLocaleDateString(undefined, { weekday: "short" });
 
-const FATIGUE_LABEL = { ez: "EZ", struggle: "HARD", failure: "FAIL", tooTired: "DEAD" } as const;
+const FATIGUE_LABEL = { ez: "Easy", struggle: "Hard", failure: "Fail", tooTired: "Tired" } as const;
 type FatigueId = keyof typeof FATIGUE_LABEL;
 
 const HEADER_EXTRA = space[40] + space[16];
 const HEADER_FADE = space[56] + space[16];
 
-function sessionSubtitle(exerciseCount: number, setCount: number) {
+function sessionCountLabel(n: number) {
+  return n === 1 ? "1 session" : `${n} sessions`;
+}
+
+function sessionSubtitle(date: number, exerciseCount: number, setCount: number) {
   const exercises = exerciseCount === 1 ? "exercise" : "exercises";
   const sets = setCount === 1 ? "set" : "sets";
-  return `${exerciseCount} ${exercises}, ${setCount} ${sets}`;
+  return `${dayLabel(date)} · ${exerciseCount} ${exercises} · ${setCount} ${sets}`;
 }
 
 function listPad(top: number, bottom: number) {
@@ -76,17 +78,10 @@ export default function HistoryScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={listPad(pad.top, pad.bottom)}>
-        <View style={{ gap: gap.group }}>
-          <ScreenTitle title="History" />
-          {summaries === undefined ? (
-            <View style={{ gap: space[4] }}>
-              <Skeleton width={140} height={type.caption.fontSize} />
-              <Skeleton width={56} height={28} />
-            </View>
-          ) : summaries.length > 0 ? (
-            <Stat label="sessions since day one" value={summaries.length} />
-          ) : null}
-        </View>
+        <ScreenTitle
+          title="History"
+          subtitle={summaries === undefined ? undefined : sessionCountLabel(summaries.length)}
+        />
 
         {summaries === undefined ? (
           <HistorySkeleton />
@@ -98,7 +93,8 @@ export default function HistoryScreen() {
           />
         ) : (
           months.map((m) => (
-            <Section key={m.label} header={m.label}>
+            <View key={m.label} style={{ gap: space[8] }}>
+              <T variant="headline">{m.label}</T>
               {m.items.map((s) => (
                 <SessionRow
                   key={s._id}
@@ -106,11 +102,10 @@ export default function HistoryScreen() {
                   dayName={s.dayName}
                   exerciseCount={s.exerciseCount}
                   setCount={s.setCount}
-                  muscleGroup={s.muscleGroup}
                   onPress={() => setSelected(s._id)}
                 />
               ))}
-            </Section>
+            </View>
           ))
         )}
       </ScrollView>
@@ -121,16 +116,18 @@ export default function HistoryScreen() {
 
 function HistorySkeleton() {
   return (
-    <View style={{ gap: space[8] }}>
-      <Skeleton width={120} height={type.footnote.fontSize} style={{ marginHorizontal: space[16] }} />
-      <Section>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={{ paddingHorizontal: space[16], paddingVertical: space[12], gap: space[8] }}>
-            <Skeleton width="58%" height={type.body.fontSize} />
-            <Skeleton width="42%" height={type.footnote.fontSize} />
-          </View>
-        ))}
-      </Section>
+    <View style={{ gap: gap.section }}>
+      {[0, 1].map((n) => (
+        <View key={n} style={{ gap: space[8] }}>
+          <Skeleton width={140} height={type.headline.fontSize} />
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ minHeight: 52, paddingVertical: space[12], gap: space[8] }}>
+              <Skeleton width="46%" height={type.body.fontSize} />
+              <Skeleton width="78%" height={type.subhead.fontSize} />
+            </View>
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
@@ -140,46 +137,40 @@ function SessionRow({
   dayName,
   exerciseCount,
   setCount,
-  muscleGroup,
   onPress,
 }: {
   date: number;
   dayName: string;
   exerciseCount: number;
   setCount: number;
-  muscleGroup: string;
   onPress: () => void;
 }) {
   const t = useTheme();
   return (
-    <Row
-      title={dayName}
-      subtitle={sessionSubtitle(exerciseCount, setCount)}
-      onPress={onPress}
-      leading={
-        <View style={{ width: space[40], alignItems: "center" }}>
-          <Num size={type.title2.fontSize} weight="semibold">{new Date(date).getDate()}</Num>
-          <T variant="caption">{weekday(date)}</T>
-        </View>
-      }
-      accessory={
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
-          {muscleGroup ? (
-            <View
-              style={{
-                backgroundColor: t.elevated2,
-                borderRadius: radius.full,
-                paddingHorizontal: space[8],
-                paddingVertical: space[4],
-              }}
-            >
-              <T variant="caption" color={t.secondaryLabel} numberOfLines={1}>{muscleGroup}</T>
-            </View>
-          ) : null}
-          <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
-        </View>
-      }
-    />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={dayName}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => ({
+        minHeight: 52,
+        marginHorizontal: -gap.screen,
+        paddingHorizontal: gap.screen,
+        paddingVertical: space[12],
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space[12],
+        backgroundColor: pressed ? t.elevated2 : "transparent",
+      })}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <T variant="body" color={t.label} numberOfLines={1}>{dayName}</T>
+        <T variant="subhead" numberOfLines={1}>{sessionSubtitle(date, exerciseCount, setCount)}</T>
+      </View>
+      <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
+    </Pressable>
   );
 }
 
@@ -302,7 +293,7 @@ function ExerciseHeader({
     <View style={{ paddingHorizontal: space[16], flexDirection: "row", alignItems: "center", gap: space[8] }}>
       <View style={{ flex: 1, gap: 2 }}>
         <T variant="headline" color={t.label} numberOfLines={2}>{name}</T>
-        {muscleGroup ? <T variant="footnote">{muscleGroup}</T> : null}
+        {muscleGroup ? <T variant="subhead">{muscleGroup}</T> : null}
       </View>
       <IconButton
         name="chart.xyaxis.line"
@@ -339,7 +330,7 @@ function SetTrailing({
 function EffortTag({ fatigue }: { fatigue: string }) {
   const t = useTheme();
   const hard = fatigue === "failure" || fatigue === "tooTired";
-  const label = FATIGUE_LABEL[fatigue as FatigueId] ?? fatigue.toUpperCase();
+  const label = FATIGUE_LABEL[fatigue as FatigueId] ?? fatigue;
   return (
     <View
       style={{
@@ -348,7 +339,6 @@ function EffortTag({ fatigue }: { fatigue: string }) {
         ...squircle,
         paddingHorizontal: space[8],
         paddingVertical: space[4],
-        minWidth: space[40],
         alignItems: "center",
       }}
     >
@@ -368,18 +358,20 @@ function DetailHeader({ onBack, title, subtitle }: { onBack: () => void; title?:
         right: 0,
         flexDirection: "row",
         alignItems: "center",
-        gap: space[12],
         paddingHorizontal: gap.screen,
         paddingVertical: space[8],
       }}
     >
       <IconButton name="chevron.left" variant="glass" accessibilityLabel="Back" onPress={onBack} />
       {title ? (
-        <View style={{ flex: 1, gap: 2 }}>
-          <T variant="title2" numberOfLines={1}>{title}</T>
-          {subtitle ? <T variant="subhead" numberOfLines={1}>{subtitle}</T> : null}
+        <View style={{ flex: 1, alignItems: "center", gap: 2, paddingHorizontal: space[8] }}>
+          <T variant="headline" numberOfLines={1} style={{ textAlign: "center" }}>{title}</T>
+          {subtitle ? <T variant="subhead" numberOfLines={1} style={{ textAlign: "center" }}>{subtitle}</T> : null}
         </View>
-      ) : null}
+      ) : (
+        <View style={{ flex: 1 }} />
+      )}
+      <View style={{ width: 40 }} />
     </View>
   );
 }
@@ -388,52 +380,40 @@ function TrendSheet({ trend, onClose }: {
   trend: { id: Id<"exercises">; name: string } | null;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const contentWidth = useSheetContentWidth();
   const data = useQuery(api.workouts.exerciseTrend, trend ? { exerciseId: trend.id } : "skip");
-  // The sheet already insets 16pt on each side.
-  const contentWidth = Math.max(0, width - gap.screen * 2);
 
   return (
-    <BottomSheet
-      isPresented={trend !== null}
-      onDismiss={onClose}
-      modifiers={[presentationBackground(palette.bg)]}
-    >
-      <RNHostView matchContents>
-        <View style={{ width: contentWidth, gap: gap.group, paddingBottom: Math.max(insets.bottom, space[12]) }}>
-          <T variant="title2">{trend?.name}</T>
-          {data === undefined ? (
-            <View style={{ gap: space[12] }}>
-              <Skeleton width="40%" height={28} />
-              <Skeleton width="100%" height={56} />
-            </View>
-          ) : data.points.length < 2 ? (
-            <T variant="subhead">Not enough sessions yet. Log this lift a couple more times and the trend shows up here.</T>
-          ) : (
-            <View style={{ gap: space[12] }}>
-              <View style={{ flexDirection: "row", gap: gap.group }}>
-                <Stat
-                  label="top set last time"
-                  value={data.points[data.points.length - 1].topWeight}
-                  style={{ flex: 1 }}
-                />
-                <Stat label="best est. 1RM" value={data.bestE1RM} style={{ flex: 1 }} />
-              </View>
-              <SparkLine
-                values={data.points.map((p) => p.topWeight)}
-                width={contentWidth}
-                refValue={Math.max(...data.points.map((p) => p.topWeight))}
-              />
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <T variant="caption">{shortDate(data.points[0].date)}</T>
-                <T variant="caption">{data.points.length} sessions</T>
-                <T variant="caption">{shortDate(data.points[data.points.length - 1].date)}</T>
-              </View>
-            </View>
-          )}
+    <Sheet isPresented={trend !== null} onDismiss={onClose} title={trend?.name}>
+      {data === undefined ? (
+        <View style={{ gap: space[12] }}>
+          <Skeleton width="40%" height={28} />
+          <Skeleton width="100%" height={56} />
         </View>
-      </RNHostView>
-    </BottomSheet>
+      ) : data.points.length < 2 ? (
+        <T variant="subhead">Not enough sessions yet. Log this lift a couple more times and the trend shows up here.</T>
+      ) : (
+        <View style={{ gap: space[12] }}>
+          <View style={{ flexDirection: "row", gap: gap.group }}>
+            <Stat
+              label="Top set last time"
+              value={data.points[data.points.length - 1].topWeight}
+              style={{ flex: 1 }}
+            />
+            <Stat label="Best est. 1RM" value={data.bestE1RM} style={{ flex: 1 }} />
+          </View>
+          <SparkLine
+            values={data.points.map((p) => p.topWeight)}
+            width={contentWidth}
+            refValue={Math.max(...data.points.map((p) => p.topWeight))}
+          />
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <T variant="caption">{shortDate(data.points[0].date)}</T>
+            <T variant="caption">{data.points.length} sessions</T>
+            <T variant="caption">{shortDate(data.points[data.points.length - 1].date)}</T>
+          </View>
+        </View>
+      )}
+    </Sheet>
   );
 }
