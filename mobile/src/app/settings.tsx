@@ -5,11 +5,16 @@ import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import { api } from "../../../convex/_generated/api";
-import { Field, Section, Skeleton, T, gap, radius, space } from "@/components/ui/kit";
+import { Screen } from "@/components/screen";
+import { Sheet } from "@/components/ui/sheet";
+import {
+  Eyebrow, Field, IconButton, Row, Section, Skeleton, T,
+  gap, radius, space,
+} from "@/components/ui/kit";
 import { tap, warning } from "@/lib/haptics";
-import { palette, accentFromSetting, useTheme } from "@/lib/theme";
+import { accentFromSetting, useTheme } from "@/lib/theme";
 
 // Same preset accents as the web app; the oklch strings are what's stored
 // in shared settings, the hexes are the native rendering.
@@ -63,8 +68,25 @@ function toDayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function GoalRow({ label, settingKey, placeholder, current }: {
-  label: string; settingKey: string; placeholder: string; current?: string;
+function Leading({ name }: { name: SFSymbol }) {
+  const t = useTheme();
+  return (
+    <SymbolView
+      name={name}
+      size={22}
+      tintColor={t.label}
+      weight="regular"
+      resizeMode="scaleAspectFit"
+    />
+  );
+}
+
+function sectionHeader(label: string) {
+  return <Eyebrow style={{ paddingHorizontal: space[16] }}>{label}</Eyebrow>;
+}
+
+function GoalRow({ label, settingKey, placeholder, current, icon }: {
+  label: string; settingKey: string; placeholder: string; current?: string; icon: SFSymbol;
 }) {
   const t = useTheme();
   const setSetting = useMutation(api.settings.set);
@@ -86,81 +108,60 @@ function GoalRow({ label, settingKey, placeholder, current }: {
   };
 
   return (
-    <View
-      style={{
-        minHeight: 44,
-        paddingVertical: space[8],
-        paddingHorizontal: space[16],
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space[12],
-      }}
-    >
-      <T variant="body" style={{ flex: 1 }}>{label}</T>
-      <Field
-        value={value}
-        onChangeText={(next) => {
-          dirty.current = next !== (current ?? "");
-          setValue(next);
-        }}
-        onFocus={() => { focused.current = true; }}
-        onBlur={() => {
-          focused.current = false;
-          save();
-        }}
-        onSubmitEditing={save}
-        placeholder={placeholder}
-        placeholderTextColor={t.tertiaryLabel}
-        keyboardType="decimal-pad"
-        returnKeyType="done"
-        autoCapitalize="none"
-        autoCorrect={false}
-        mono
-        style={{
-          width: 112,
-          backgroundColor: "transparent",
-          paddingHorizontal: 0,
-          textAlign: "right",
-        }}
-      />
-    </View>
+    <Row
+      title={label}
+      leading={<Leading name={icon} />}
+      accessory={
+        <Field
+          value={value}
+          onChangeText={(next) => {
+            dirty.current = next !== (current ?? "");
+            setValue(next);
+          }}
+          onFocus={() => { focused.current = true; }}
+          onBlur={() => {
+            focused.current = false;
+            save();
+          }}
+          onSubmitEditing={save}
+          placeholder={placeholder}
+          placeholderTextColor={t.tertiaryLabel}
+          keyboardType="decimal-pad"
+          returnKeyType="done"
+          autoCapitalize="none"
+          autoCorrect={false}
+          mono
+          style={{
+            width: 112,
+            height: 28,
+            backgroundColor: "transparent",
+            paddingHorizontal: 0,
+            textAlign: "right",
+            color: t.secondaryLabel,
+          }}
+        />
+      }
+    />
   );
 }
 
-function SheetHeader({ onDone }: { onDone: () => void }) {
-  const t = useTheme();
-  // As a sheet the top inset is 0; opened full-screen (deep link) it clears the status bar.
-  const top = useSafeAreaInsets().top;
+function SettingsHeader({ onClose }: { onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  // Form sheet: clear the grabber. Full screen (deep link): clear the status bar.
+  const topPad = insets.top > 0 ? insets.top + space[8] : 28;
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: gap.screen,
-        paddingTop: Math.max(space[24], top + space[8]),
-        paddingBottom: space[8],
-      }}
-    >
-      <T variant="title2">Settings</T>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-        hitSlop={8}
-        onPress={() => {
-          tap();
-          onDone();
-        }}
-        style={({ pressed }) => ({
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: "flex-end",
-          justifyContent: "center",
-          opacity: pressed ? 0.6 : 1,
-        })}
-      >
-        <T variant="headline" color={t.accent}>Done</T>
-      </Pressable>
+    <View style={{ paddingTop: topPad, paddingBottom: space[8] }}>
+      <View style={{ height: 44, justifyContent: "center", paddingHorizontal: gap.screen }}>
+        <T variant="headline" style={{ textAlign: "center" }}>Settings</T>
+        <View style={{ position: "absolute", right: gap.screen, top: 2 }}>
+          <IconButton
+            name="xmark"
+            variant="glass"
+            accessibilityLabel="Close"
+            onPress={onClose}
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -172,24 +173,27 @@ export default function SettingsScreen() {
   const { signOut } = useAuthActions();
   const settings = useQuery(api.settings.getAll);
   const setSetting = useMutation(api.settings.set);
+  const [accentOpen, setAccentOpen] = useState(false);
   // Opened without a back stack (deep link, reload), fall back to Train instead of erroring.
   const dismiss = () => (router.canGoBack() ? router.back() : router.replace("/"));
 
   if (!settings) {
     return (
-      <View style={{ flex: 1, backgroundColor: palette.bg }}>
-        <SheetHeader onDone={dismiss} />
+      <Screen>
+        <SettingsHeader onClose={dismiss} />
         <View style={{ paddingHorizontal: gap.screen, gap: gap.section, paddingTop: space[8] }}>
-          <Skeleton height={88} />
+          <Skeleton height={52} />
           <Skeleton height={176} />
           <Skeleton height={120} />
-          <Skeleton height={44} />
+          <Skeleton height={52} />
         </View>
-      </View>
+      </Screen>
     );
   }
 
   const accent = settings.accent ?? ACCENTS[0].value;
+  const accentMeta = ACCENTS.find((a) => a.value === accent) ?? ACCENTS[0];
+  const accentHex = accentFromSetting(accent);
   const shaveDays = parseShaveDays(settings.skinShaveDays);
   const startDate = parseStartDate(settings.skinStartDate);
 
@@ -201,9 +205,15 @@ export default function SettingsScreen() {
     void setSetting({ key: "skinShaveDays", value: JSON.stringify(next) });
   };
 
+  const pickAccent = (value: string) => {
+    tap();
+    void setSetting({ key: "accent", value });
+    setAccentOpen(false);
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: palette.bg }}>
-      <SheetHeader onDone={dismiss} />
+    <Screen>
+      <SettingsHeader onClose={dismiss} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -212,90 +222,91 @@ export default function SettingsScreen() {
         contentContainerStyle={{
           paddingHorizontal: gap.screen,
           paddingTop: space[8],
-          paddingBottom: insets.bottom + space[24],
+          paddingBottom: (insets.top > 0 ? insets.bottom : 0) + space[24],
           gap: gap.section,
         }}
       >
-        <Section header="Accent">
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              gap: gap.row,
-              padding: space[16],
-            }}
-          >
-            {ACCENTS.map((a) => {
-              const hex = accentFromSetting(a.value);
-              const active = accent === a.value;
-              return (
-                <Pressable
-                  key={a.name}
-                  accessibilityLabel={a.name}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => {
-                    tap();
-                    void setSetting({ key: "accent", value: a.value });
+        <Section header={sectionHeader("App")}>
+          <Row
+            title="Accent"
+            leading={<Leading name="paintpalette" />}
+            onPress={() => setAccentOpen(true)}
+            accessory={
+              <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
+                <T variant="body" color={t.secondaryLabel} numberOfLines={1}>{accentMeta.name}</T>
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: accentHex.hex,
                   }}
-                  style={({ pressed }) => ({
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: hex.hex,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: pressed ? 0.78 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
-                >
-                  {active ? (
-                    <SymbolView name="checkmark" size={16} tintColor={hex.fg} weight="bold" />
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
+                />
+                <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
+              </View>
+            }
+          />
         </Section>
 
-        <Section header="Daily goals">
-          <GoalRow label="Protein (g)" settingKey="proteinGoal" placeholder="e.g. 180" current={settings.proteinGoal} />
-          <GoalRow label="Calories" settingKey="calorieGoal" placeholder="e.g. 2400" current={settings.calorieGoal} />
-          <GoalRow label="Goal weight (lb)" settingKey="weightGoal" placeholder="e.g. 175" current={settings.weightGoal} />
-          <GoalRow label="Water (cups)" settingKey="waterGoal" placeholder="e.g. 8" current={settings.waterGoal} />
+        <Section header={sectionHeader("Daily goals")}>
+          <GoalRow
+            label="Protein (g)"
+            settingKey="proteinGoal"
+            placeholder="e.g. 180"
+            current={settings.proteinGoal}
+            icon="fork.knife"
+          />
+          <GoalRow
+            label="Calories"
+            settingKey="calorieGoal"
+            placeholder="e.g. 2400"
+            current={settings.calorieGoal}
+            icon="flame"
+          />
+          <GoalRow
+            label="Goal weight (lb)"
+            settingKey="weightGoal"
+            placeholder="e.g. 175"
+            current={settings.weightGoal}
+            icon="scalemass"
+          />
+          <GoalRow
+            label="Water (cups)"
+            settingKey="waterGoal"
+            placeholder="e.g. 8"
+            current={settings.waterGoal}
+            icon="drop"
+          />
         </Section>
 
         <Section
-          header="Skin"
+          header={sectionHeader("Skin")}
           footer="Days you typically shave. The AM routine adds the shave step on these days."
         >
-          <View
-            style={{
-              minHeight: 44,
-              paddingVertical: space[8],
-              paddingHorizontal: space[16],
-              flexDirection: "row",
-              alignItems: "center",
-              gap: space[12],
-            }}
-          >
-            <T variant="body" style={{ flex: 1 }}>Routine start</T>
-            <DateTimePicker
-              value={startDate}
-              mode="date"
-              display="compact"
-              themeVariant="dark"
-              accentColor={t.accent}
-              onValueChange={(_event, date) => {
-                const next = toDayKey(date);
-                if (next === (settings.skinStartDate ?? "")) return;
-                void setSetting({ key: "skinStartDate", value: next });
-              }}
-              style={{ width: 140, height: 36 }}
-            />
-          </View>
-          <View style={{ padding: space[16], gap: gap.row }}>
-            <T variant="body">Default shave days</T>
+          <Row
+            title="Routine start"
+            leading={<Leading name="calendar" />}
+            accessory={
+              <DateTimePicker
+                value={startDate}
+                mode="date"
+                display="compact"
+                themeVariant="dark"
+                accentColor={t.accent}
+                onValueChange={(_event, date) => {
+                  const next = toDayKey(date);
+                  if (next === (settings.skinStartDate ?? "")) return;
+                  void setSetting({ key: "skinStartDate", value: next });
+                }}
+                style={{ width: 140, height: 36 }}
+              />
+            }
+          />
+          <View style={{ paddingVertical: space[12], paddingHorizontal: space[16], gap: space[12] }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space[12] }}>
+              <Leading name="scissors" />
+              <T variant="body" style={{ flex: 1 }}>Default shave days</T>
+            </View>
             <View style={{ flexDirection: "row", gap: space[4] }}>
               {WEEKDAYS.map((day, i) => {
                 const on = shaveDays.includes(i);
@@ -314,7 +325,6 @@ export default function SettingsScreen() {
                       alignItems: "center",
                       justifyContent: "center",
                       opacity: pressed ? 0.78 : 1,
-                      transform: [{ scale: pressed ? 0.97 : 1 }],
                     })}
                   >
                     <T variant="caption" color={on ? t.accentFg : t.secondaryLabel}>{day.label}</T>
@@ -325,7 +335,7 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
-        <Section header="Account">
+        <Section>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign out"
@@ -340,14 +350,69 @@ export default function SettingsScreen() {
                 minHeight: 44,
                 paddingVertical: space[12],
                 paddingHorizontal: space[16],
-                justifyContent: "center",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space[12],
               }}
             >
-              <T variant="body" color={t.destructive}>Sign out</T>
+              <Leading name="rectangle.portrait.and.arrow.right" />
+              <T variant="body" style={{ flex: 1 }}>Sign out</T>
             </View>
           </Pressable>
         </Section>
       </ScrollView>
-    </View>
+
+      <Sheet
+        isPresented={accentOpen}
+        onDismiss={() => setAccentOpen(false)}
+        title="Accent"
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: space[16],
+            justifyContent: "center",
+            paddingVertical: space[8],
+          }}
+        >
+          {ACCENTS.map((a) => {
+            const hex = accentFromSetting(a.value);
+            const active = accent === a.value;
+            return (
+              <Pressable
+                key={a.name}
+                accessibilityLabel={a.name}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => pickAccent(a.value)}
+                style={({ pressed }) => ({
+                  alignItems: "center",
+                  gap: space[8],
+                  opacity: pressed ? 0.78 : 1,
+                  width: 72,
+                })}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: hex.hex,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {active ? (
+                    <SymbolView name="checkmark" size={16} tintColor={hex.fg} weight="bold" />
+                  ) : null}
+                </View>
+                <T variant="caption" numberOfLines={1} style={{ textAlign: "center" }}>{a.name}</T>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Sheet>
+    </Screen>
   );
 }
