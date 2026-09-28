@@ -218,14 +218,12 @@ function CaloriesHero({ calorieGoal, todayStart, protein, proteinGoal }: {
   return (
     <View style={{ gap: gap.row }}>
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[8] }}>
-        <Display
-          size={52}
-          color={over ? t.destructive : t.accent}
-          style={{ lineHeight: 56 }} // optical: Anton caps clip at the default 1.18 ratio
-        >
+        {/* Anton's caps need the full default line height or the tops clip. */}
+        <Display size={52} color={over ? t.destructive : t.accent}>
           {hero}
         </Display>
-        <T variant="subhead" style={{ marginBottom: 6 }}>{unit}</T> {/* optical baseline with Display 52 */}
+        {/* marginBottom: optical baseline with Display 52 */}
+        <T variant="subhead" style={{ marginBottom: 10 }}>{unit}</T>
       </View>
       <T variant="footnote">{mathLine}</T>
       <View style={{ gap: space[8] }}>
@@ -293,7 +291,7 @@ function ProteinStreakCard({ todayStart }: { todayStart: number }) {
       </View>
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[4] }}>
         <Num size={28} weight="semibold" color={streak > 0 ? t.success : t.label}>{streak}</Num>
-        <T variant="footnote" style={{ marginBottom: 3 }}>{streak === 1 ? "day" : "days"}</T> {/* optical baseline with Num 28 */}
+        <T variant="footnote" style={{ marginBottom: 3 }}>{streak === 1 ? "day" : "days"}</T>{/* optical baseline with Num 28 */}
       </View>
       {proteinGoal > 0 ? (
         <WeekDots size={17}
@@ -325,7 +323,7 @@ function WaterCard() {
       </View>
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[4] }}>
         <Num size={28} weight="semibold" color={met ? t.success : t.label}>{count}</Num>
-        <T variant="footnote" style={{ marginBottom: 3 }}>/ {goal}</T> {/* optical baseline with Num 28 */}
+        <T variant="footnote" style={{ marginBottom: 3 }}>/ {goal}</T>{/* optical baseline with Num 28 */}
       </View>
       <View style={{ flexDirection: "row", gap: space[8] }}>
         <IconButton
