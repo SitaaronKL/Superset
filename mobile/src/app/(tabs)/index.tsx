@@ -1,25 +1,37 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Alert, Pressable, ScrollView, Text, useWindowDimensions, View,
+  Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet, Host, RNHostView } from "@expo/ui";
 import { Button, ConfirmationDialog, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
 import { labelsHidden, pickerStyle, presentationBackground, tag, tint } from "@expo/ui/swift-ui/modifiers";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
-import { useAction, useMutation, useQuery } from "convex/react";
-import * as Haptics from "expo-haptics";
-import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react-native";
+import { useMutation, useQuery } from "convex/react";
+import { SymbolView } from "expo-symbols";
+import Animated, {
+  LinearTransition,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import {
   rampPlan, nextSetTarget, explainNextSet, type SetRecord, type SetTarget,
 } from "../../../../convex/engine";
 import { useRouter } from "expo-router";
-import { Body, Card, Display, Eyebrow, Field, IconButton, Num, Pill, ScreenTitle } from "@/components/ui/kit";
+import {
+  Card, Display, Eyebrow, EmptyState, Field, IconButton, Num, Pill, Row, ScreenTitle, Section,
+  Skeleton, Stat, T,
+  gap, motion, radius, space, squircle, type,
+} from "@/components/ui/kit";
 import { WeekDots, weekHits } from "@/components/week-dots";
 import { RestDock } from "@/components/rest-dock";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { success, tap } from "@/lib/haptics";
+import { useTheme } from "@/lib/theme";
 
 const FATIGUE = [
   { id: "ez", label: "EZ" },
@@ -29,16 +41,55 @@ const FATIGUE = [
 ] as const;
 type FatigueId = (typeof FATIGUE)[number]["id"];
 
+const SET_LAYOUT = LinearTransition.duration(motion.duration.base);
+
 export default function TrainScreen() {
   const session = useQuery(api.workouts.activeSession);
   const days = useQuery(api.workouts.listProgramDays);
-  const t = useTheme();
+  const pad = useScreenInsets();
+  const monthName = useMemo(
+    () => new Date().toLocaleDateString(undefined, { month: "long" }),
+    [],
+  );
 
   if (session === undefined || days === undefined) {
-    return <Screen><Body color={t.mutedFg} style={{ padding: 24, paddingTop: 80 }}>Loading…</Body></Screen>;
+    return (
+      <Screen>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: gap.screen,
+            paddingTop: pad.top,
+            paddingBottom: pad.bottom,
+            gap: gap.group,
+          }}
+        >
+          <ScreenTitle title="Train" subtitle={monthName} accessory={<SettingsGear />} />
+          <Skeleton height={160} />
+          <Skeleton height={88} />
+          <View style={{ flexDirection: "row", gap: gap.group }}>
+            <Skeleton height={72} style={{ flex: 1 }} />
+            <Skeleton height={72} style={{ flex: 1 }} />
+            <Skeleton height={72} style={{ flex: 1 }} />
+          </View>
+        </ScrollView>
+        <ScreenFades />
+      </Screen>
+    );
   }
-  if (!session) return <TrainHome days={days} />;
+  if (!session) return <TrainHome days={days} monthName={monthName} />;
   return <ActiveSession session={session} days={days} />;
+}
+
+function SettingsGear() {
+  const router = useRouter();
+  return (
+    <IconButton
+      name="gearshape"
+      variant="glass"
+      accessibilityLabel="Settings"
+      onPress={() => router.push("/settings")}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -53,88 +104,130 @@ function monthBounds(d: Date) {
 }
 const fmtVolume = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v));
 
-function StatTile({ label, value, delta, fmt = String }: {
-  label: string; value: number | undefined; delta: number | undefined; fmt?: (n: number) => string;
-}) {
-  const t = useTheme();
-  const d = delta ?? 0;
-  return (
-    <Card style={{ flex: 1, padding: 12, gap: 2, alignItems: "flex-start" }}>
-      <Eyebrow style={{ fontSize: 10 }}>{label}</Eyebrow>
-      <Text style={{ fontFamily: fonts.display, fontSize: 26, color: t.fg, fontVariant: ["tabular-nums"] }}>
-        {value === undefined ? "·" : fmt(value)}
-      </Text>
-      <View style={{ backgroundColor: t.muted, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginTop: 2 }}>
-        <Num size={11} color={t.mutedFg}>{d > 0 ? "▲" : d < 0 ? "▼" : "·"} {fmt(Math.abs(d))}</Num>
-      </View>
-    </Card>
-  );
+function monthDelta(thisVal: number | undefined, lastVal: number | undefined) {
+  if (thisVal === undefined || lastVal === undefined) return undefined;
+  if (thisVal === 0 && lastVal === 0) return undefined;
+  return thisVal - lastVal;
 }
 
-function TrainHome({ days }: { days: Doc<"programDays">[] }) {
+function nextProgramDay(
+  days: Doc<"programDays">[],
+  recent: Doc<"sessions">[] | undefined,
+): Doc<"programDays"> | null {
+  if (days.length === 0 || recent === undefined) return null;
+  const lastDone = recent.find((s) => s.status === "done" && s.programDayId);
+  if (!lastDone?.programDayId) return days[0] ?? null;
+  const idx = days.findIndex((d) => d._id === lastDone.programDayId);
+  if (idx < 0) return days[0] ?? null;
+  return days[(idx + 1) % days.length] ?? null;
+}
+
+function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName: string }) {
   const t = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const pad = useScreenInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [bounds] = useState(() => monthBounds(new Date()));
-  const [monthName] = useState(() => new Date().toLocaleDateString(undefined, { month: "long" }));
   const thisMonth = useQuery(api.workouts.rangeStats, { start: bounds.start, end: bounds.end });
   const lastMonth = useQuery(api.workouts.rangeStats, { start: bounds.prevStart, end: bounds.prevEnd });
   const recent = useQuery(api.workouts.recentSessions);
   const start = useMutation(api.workouts.startSession);
   const [pickOpen, setPickOpen] = useState(false);
 
-  const delta = (k: "workouts" | "sets" | "volume") =>
-    thisMonth && lastMonth ? thisMonth[k] - lastMonth[k] : undefined;
+  const nextDay = useMemo(() => nextProgramDay(days, recent), [days, recent]);
   const trained = weekHits((recent ?? []).filter((s) => s.status === "done").map((s) => s.date));
+
+  const openPicker = () => {
+    tap();
+    setPickOpen(true);
+  };
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingTop: pad.top, paddingBottom: pad.bottom }}>
-        <ScreenTitle
-          title={monthName}
-          accessory={
-            <IconButton
-              name="gearshape"
-              variant="glass"
-              accessibilityLabel="Settings"
-              onPress={() => router.push("/settings")}
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: gap.screen,
+          paddingTop: pad.top,
+          paddingBottom: pad.bottom,
+          gap: gap.group,
+        }}
+      >
+        <ScreenTitle title="Train" subtitle={monthName} accessory={<SettingsGear />} />
+
+        <View style={{ gap: gap.section }}>
+          {recent === undefined ? (
+            <Skeleton height={160} />
+          ) : nextDay ? (
+            <Card>
+              <Eyebrow>Next up</Eyebrow>
+              <T variant="title2">{nextDay.name}</T>
+              <T variant="footnote">{nextDay.exerciseIds.length} exercises</T>
+              <Pill
+                label="Start"
+                kind="primary"
+                onPress={() => void start({ programDayId: nextDay._id })}
+                style={{ alignSelf: "stretch" }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Pick another day"
+                onPress={openPicker}
+                hitSlop={8}
+                style={({ pressed }) => ({
+                  alignSelf: "center",
+                  paddingVertical: space[4],
+                  opacity: pressed ? 0.72 : 1,
+                })}
+              >
+                <T variant="footnote">Pick another day</T>
+              </Pressable>
+            </Card>
+          ) : (
+            <EmptyState
+              symbol="dumbbell.fill"
+              title="No program days"
+              message="Start a freestyle session with no template."
+              action={{ label: "Start", onPress: () => void start({}) }}
             />
-          }
-        />
+          )}
 
-        <Card>
-          <Eyebrow>This week</Eyebrow>
-          <WeekDots hits={trained} />
-        </Card>
+          <Card>
+            <Eyebrow>This week</Eyebrow>
+            <WeekDots hits={trained} />
+          </Card>
 
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <StatTile label="Workouts" value={thisMonth?.workouts} delta={delta("workouts")} />
-          <StatTile label="Sets" value={thisMonth?.sets} delta={delta("sets")} />
-          <StatTile label="Volume" value={thisMonth?.volume} delta={delta("volume")} fmt={fmtVolume} />
+          {thisMonth && lastMonth ? (
+            <Card style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Stat
+                label="Workouts"
+                value={thisMonth.workouts}
+                delta={monthDelta(thisMonth.workouts, lastMonth.workouts)}
+                style={{ flex: 1 }}
+              />
+              <Stat
+                label="Sets"
+                value={thisMonth.sets}
+                delta={monthDelta(thisMonth.sets, lastMonth.sets)}
+                style={{ flex: 1 }}
+              />
+              <Stat
+                label="Volume"
+                value={thisMonth.volume}
+                delta={monthDelta(thisMonth.volume, lastMonth.volume)}
+                format={fmtVolume}
+                style={{ flex: 1 }}
+              />
+            </Card>
+          ) : (
+            <Card style={{ flexDirection: "row", gap: gap.group }}>
+              <Skeleton height={72} style={{ flex: 1 }} />
+              <Skeleton height={72} style={{ flex: 1 }} />
+              <Skeleton height={72} style={{ flex: 1 }} />
+            </Card>
+          )}
         </View>
-
-        {thisMonth && thisMonth.workouts === 0 && (
-          <Body color={t.mutedFg} style={{ textAlign: "center", marginTop: 12 }}>Nothing logged this month. Tap + to pick a day.</Body>
-        )}
       </ScrollView>
       <ScreenFades />
-
-      {/* FAB */}
-      <Pressable
-        onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setPickOpen(true); }}
-        accessibilityLabel="Start a workout"
-        style={({ pressed }) => ({
-          position: "absolute", bottom: insets.bottom + 28, alignSelf: "center",
-          width: 58, height: 58, borderRadius: 29, backgroundColor: t.accent,
-          alignItems: "center", justifyContent: "center",
-          shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
-          transform: [{ scale: pressed ? 0.94 : 1 }],
-        })}
-      >
-        <Plus size={28} color={t.accentFg} />
-      </Pressable>
 
       {/* Day picker. Omit snapPoints so the native sheet sizes to the rows. Swipe dismisses, so there is no Cancel. */}
       <BottomSheet
@@ -144,25 +237,23 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
         modifiers={[presentationBackground(t.bg)]}
       >
         <RNHostView matchContents>
-          <View style={{ width: windowWidth - 32, gap: 10, paddingBottom: insets.bottom }}>
-            <Display size={26} style={{ marginBottom: 6 }}>What are we training?</Display>
-            {days.map((d) => (
-              <Pressable key={d._id}
-                onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
-                style={({ pressed }) => ({
-                  backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", padding: 18,
-                  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                  borderWidth: 1, borderColor: t.hairline, opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Display size={17}>{d.name}</Display>
-                <Num size={12} color={t.mutedFg}>{d.exerciseIds.length} exercises</Num>
-              </Pressable>
-            ))}
-            <Pressable onPress={() => { setPickOpen(false); void start({}); }}
-              style={({ pressed }) => ({ borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderStyle: "dashed", borderColor: t.border, padding: 18, opacity: pressed ? 0.7 : 1 })}>
-              <Body color={t.mutedFg}>Freestyle session (no template)</Body>
-            </Pressable>
+          <View style={{ width: windowWidth - space[32], gap: gap.group, paddingBottom: insets.bottom }}>
+            <T variant="title2">What are we training?</T>
+            <Section>
+              {days.map((d) => (
+                <Row
+                  key={d._id}
+                  title={d.name}
+                  value={`${d.exerciseIds.length} exercises`}
+                  onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
+                />
+              ))}
+              <Row
+                title="Freestyle session"
+                subtitle="No template"
+                onPress={() => { setPickOpen(false); void start({}); }}
+              />
+            </Section>
           </View>
         </RNHostView>
       </BottomSheet>
@@ -186,7 +277,7 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   const day = days.find((d) => d._id === session.programDayId) ?? null;
   const insets = useSafeAreaInsets();
-  const sessionPad = useScreenInsets(56);
+  const sessionPad = useScreenInsets(space[56]);
 
   const orderedIds = useMemo(() => {
     const fromDay = day ? [...day.exerciseIds] : [];
@@ -202,18 +293,25 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
 
   const byId = useMemo(() => new Map((exercises ?? []).map((e) => [e._id, e])), [exercises]);
 
-  if (!exercises || !sets) return <Screen><Body color={t.mutedFg} style={{ padding: 24, paddingTop: 80 }}>Loading…</Body></Screen>;
-
-  const working = sets.filter((s) => !s.isWarmup).length;
+  const working = (sets ?? []).filter((s) => !s.isWarmup).length;
   const leave = () => {
+    if (sets === undefined) return;
     if (working === 0) { void discard({ sessionId: session._id }); return; }
     setLeaveOpen(true);
   };
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingTop: sessionPad.top, paddingBottom: sessionPad.bottom + 60 }}>
-        {orderedIds.map((id) => {
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          paddingHorizontal: gap.screen,
+          gap: gap.group,
+          paddingTop: sessionPad.top,
+          paddingBottom: sessionPad.bottom + space[56],
+        }}
+      >
+        {exercises && sets ? orderedIds.map((id) => {
           const ex = byId.get(id);
           if (!ex) return null;
           const exSets = sets.filter((s) => s.exerciseId === id);
@@ -223,11 +321,21 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
               onActivate={() => setActiveExercise(activeExercise === id ? null : id)}
               onRest={(seconds, nextLabel) => setTimer({ startedAt: Date.now(), seconds, nextLabel })} />
           );
-        })}
+        }) : (
+          <>
+            <Skeleton height={64} />
+            <Skeleton height={64} />
+            <Skeleton height={64} />
+          </>
+        )}
       </ScrollView>
-      <ScreenFades topFade={72} />
+      <ScreenFades topFade={space[56] + space[16]} />
 
-      <View style={{ position: "absolute", top: insets.top, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
+      <View style={{
+        position: "absolute", top: insets.top, left: 0, right: 0,
+        flexDirection: "row", alignItems: "center", gap: space[12],
+        paddingHorizontal: gap.screen, paddingVertical: space[8],
+      }}>
         <Host matchContents colorScheme="dark" seedColor={t.accent} style={{ width: 40, height: 40 }}>
           <ConfirmationDialog
             title="Leave this session?"
@@ -237,9 +345,19 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
           >
             <ConfirmationDialog.Trigger>
               <RNHostView matchContents>
-                <Pressable onPress={leave} accessibilityLabel="Back"
-                  style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-                  <ChevronLeft size={18} color={t.fg} />
+                <Pressable
+                  onPress={leave}
+                  accessibilityLabel="Back"
+                  hitSlop={8}
+                  style={({ pressed }) => ({
+                    width: 40, height: 40, borderRadius: 20,
+                    backgroundColor: t.elevated2,
+                    alignItems: "center", justifyContent: "center",
+                    opacity: pressed ? 0.72 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
+                >
+                  <SymbolView name="chevron.left" size={20} tintColor={t.label} weight="regular" />
                 </Pressable>
               </RNHostView>
             </ConfirmationDialog.Trigger>
@@ -253,13 +371,16 @@ function ActiveSession({ session, days }: { session: Doc<"sessions">; days: Doc<
             </ConfirmationDialog.Actions>
           </ConfirmationDialog>
         </Host>
-        <Display size={22} style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</Display>
-        <Pressable onPress={() => void finish({ sessionId: session._id })} accessibilityLabel="Finish"
-          style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-          <Check size={18} color={t.fg} />
-        </Pressable>
+        <T variant="title2" style={{ flex: 1 }} numberOfLines={1}>{day?.name ?? "Freestyle"}</T>
+        <IconButton
+          name="checkmark"
+          variant="plain"
+          accessibilityLabel="Finish"
+          disabled={sets === undefined}
+          onPress={() => void finish({ sessionId: session._id })}
+          style={{ backgroundColor: t.elevated2 }}
+        />
       </View>
-
 
       {timer && (
         <RestDock seconds={timer.seconds} startedAt={timer.startedAt} nextLabel={timer.nextLabel}
@@ -290,6 +411,89 @@ function EffortPills({ value, onChange }: { value: FatigueId | null; onChange: (
   );
 }
 
+function Hairline() {
+  const t = useTheme();
+  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.separator }} />;
+}
+
+function FreshPop({ fresh, children }: { fresh: boolean; children: ReactNode }) {
+  const reduced = useReducedMotion();
+  const pop = fresh && !reduced;
+  const scale = useSharedValue(pop ? 0.96 : 1);
+  const opacity = useSharedValue(pop ? 0.35 : 1);
+
+  useEffect(() => {
+    if (!pop) return;
+    scale.set(withSpring(1, motion.spring.snappy));
+    opacity.set(withTiming(1, { duration: motion.duration.fast }));
+  }, [pop, scale, opacity]);
+
+  const anim = useAnimatedStyle(() => ({
+    opacity: opacity.get(),
+    transform: [{ scale: scale.get() }],
+  }));
+
+  return <Animated.View style={anim}>{children}</Animated.View>;
+}
+
+function SetRow({
+  label, detail, meta, dim, fresh, onPress, onLongPress,
+}: {
+  label: string;
+  detail: string;
+  meta?: ReactNode;
+  dim?: boolean;
+  fresh?: boolean;
+  onPress?: () => void;
+  onLongPress?: () => void;
+}) {
+  const t = useTheme();
+  const inner = (
+    <View style={{
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space[12],
+      paddingVertical: space[8],
+      opacity: dim ? 0.55 : 1,
+    }}>
+      <Eyebrow style={{ width: 44 }}>{label}</Eyebrow>
+      <Num size={type.subhead.fontSize} weight="semibold" color={dim ? t.secondaryLabel : t.label}>{detail}</Num>
+      {meta}
+    </View>
+  );
+  const body = fresh ? <FreshPop fresh>{inner}</FreshPop> : inner;
+  if (!onPress && !onLongPress) return body;
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={({ pressed }) => ({ backgroundColor: pressed ? t.elevated2 : "transparent" })}
+    >
+      {body}
+    </Pressable>
+  );
+}
+
+function FatigueChip({ fatigue }: { fatigue: FatigueId }) {
+  const t = useTheme();
+  const hot = fatigue === "failure" || fatigue === "tooTired";
+  return (
+    <View style={{
+      marginLeft: "auto",
+      borderRadius: radius.sm,
+      ...squircle,
+      paddingHorizontal: space[8],
+      paddingVertical: 2,
+      backgroundColor: hot ? t.destructive : t.elevated2,
+    }}>
+      <T variant="caption" color={hot ? t.label : t.secondaryLabel}>
+        {FATIGUE.find((f) => f.id === fatigue)?.label}
+      </T>
+    </View>
+  );
+}
+
 function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest }: {
   exercise: Doc<"exercises">;
   sessionId: Id<"sessions">;
@@ -306,23 +510,32 @@ function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest 
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
   const [fatigue, setFatigue] = useState<FatigueId | null>(null);
+  const [justLoggedId, setJustLoggedId] = useState<Id<"sets"> | null>(null);
 
   const workingDone = sets.filter((s) => !s.isWarmup).length;
 
   if (!isActive) {
     const done = sets.length > 0;
     return (
-      <Pressable onPress={onActivate}
+      <Pressable
+        onPress={() => { tap(); onActivate(); }}
         style={({ pressed }) => ({
-          backgroundColor: t.card, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: t.hairline,
-          flexDirection: "row", alignItems: "center", justifyContent: "space-between", opacity: pressed ? 0.7 : 1,
-        })}>
-        <Body size={15} style={{ fontFamily: fonts.sansMedium }}>{exercise.name}</Body>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          backgroundColor: pressed ? t.elevated2 : t.elevated,
+          borderRadius: radius.card,
+          ...squircle,
+          padding: space[16],
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: space[12],
+        })}
+      >
+        <T variant="headline" style={{ flex: 1 }}>{exercise.name}</T>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
           {done
-            ? <Num size={12} color={t.mutedFg}>{workingDone} sets</Num>
-            : <Body size={12} color={t.mutedFg}>tap to start</Body>}
-          <ChevronRight size={16} color={t.mutedFg} />
+            ? <T variant="footnote">{workingDone} sets</T>
+            : <T variant="footnote">tap to start</T>}
+          <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
         </View>
       </Pressable>
     );
@@ -340,105 +553,144 @@ function ExerciseCard({ exercise, sessionId, sets, isActive, onActivate, onRest 
   const suggestionWarmups = plan.warmups.slice(loggedWarmups.length);
   const futureTargets = plan.workingTargets.slice(loggedWorking.length + 1);
 
-  const submit = async (warmup: boolean) => {
-    const w = Number(weight), r = Number(reps);
-    if (!w || !r) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await logSet({
-      sessionId, exerciseId: exercise._id, setIndex: sets.length,
-      weight: w, reps: r, fatigue: warmup ? undefined : fatigue ?? undefined, isWarmup: warmup,
-    });
+  const afterLog = (setId: Id<"sets">, warmup: boolean) => {
+    setJustLoggedId(setId);
+    success();
     setWeight(""); setReps(""); setFatigue(null);
     if (!warmup) {
-      // Next target after this set: recompute cheaply from the plan.
       const next = plan.workingTargets[loggedWorking.length + 1];
       onRest(exercise.restSeconds, next && next.weight > 0 ? `${next.weight} × ${next.reps}` : null);
     }
   };
 
-  const logSuggested = (tg: SetTarget, warmup: boolean) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    void logSet({ sessionId, exerciseId: exercise._id, setIndex: sets.length, weight: tg.weight, reps: tg.reps, isWarmup: warmup });
+  const submit = async (warmup: boolean) => {
+    const w = Number(weight), r = Number(reps);
+    if (!w || !r) return;
+    const result = await logSet({
+      sessionId, exerciseId: exercise._id, setIndex: sets.length,
+      weight: w, reps: r, fatigue: warmup ? undefined : fatigue ?? undefined, isWarmup: warmup,
+    });
+    afterLog(result.setId, warmup);
   };
 
-  const rowStyle = { flexDirection: "row" as const, alignItems: "center" as const, gap: 12, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 };
+  const logSuggested = async (tg: SetTarget, warmup: boolean) => {
+    const result = await logSet({
+      sessionId, exerciseId: exercise._id, setIndex: sets.length,
+      weight: tg.weight, reps: tg.reps, isWarmup: warmup,
+    });
+    afterLog(result.setId, warmup);
+  };
+
+  const warmupRows = [
+    ...loggedWarmups.map((s) => ({ key: s._id, kind: "logged" as const, set: s })),
+    ...suggestionWarmups.map((tg, i) => ({ key: `sw${i}`, kind: "suggest" as const, tg })),
+  ];
+  const workingRows = loggedWorking.map((s, i) => ({ set: s, index: i }));
 
   return (
-    <View style={{ backgroundColor: t.card, borderRadius: 22, padding: 14, gap: 8, borderWidth: 1, borderColor: t.hairline }}>
-      <Pressable onPress={onActivate} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Display size={17}>{exercise.name}</Display>
-        <Num size={11} color={t.mutedFg}>{exercise.repRangeMin}-{exercise.repRangeMax} reps</Num>
+    <View style={{
+      backgroundColor: t.elevated,
+      borderRadius: radius.card,
+      ...squircle,
+      padding: space[16],
+      gap: gap.row,
+    }}>
+      <Pressable onPress={() => { tap(); onActivate(); }} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: space[12] }}>
+        <T variant="headline" style={{ flex: 1 }}>{exercise.name}</T>
+        <T variant="footnote">{exercise.repRangeMin}-{exercise.repRangeMax} reps</T>
       </Pressable>
 
-      {loggedWarmups.map((s) => (
-        <Pressable key={s._id} onLongPress={() => confirmDelete(s._id)} style={[rowStyle, { backgroundColor: t.muted }]}>
-          <Eyebrow style={{ width: 44, fontSize: 10 }}>Warm</Eyebrow>
-          <Num size={14}>{s.weight} × {s.reps}</Num>
-        </Pressable>
-      ))}
-      {suggestionWarmups.map((tg, i) => (
-        <Pressable key={`sw${i}`} onPress={() => logSuggested(tg, true)} style={[rowStyle, { backgroundColor: t.muted, opacity: 0.6 }]}>
-          <Eyebrow style={{ width: 44, fontSize: 10 }}>Warm</Eyebrow>
-          <Num size={14} color={t.mutedFg}>{tg.weight} × {tg.reps}</Num>
-          <Body size={11} color={t.mutedFg} style={{ marginLeft: "auto" }}>tap to log</Body>
-        </Pressable>
-      ))}
-      {loggedWorking.map((s, i) => (
-        <Pressable key={s._id} onLongPress={() => confirmDelete(s._id)} style={[rowStyle, { backgroundColor: t.accentTint }]}>
-          <Eyebrow style={{ width: 44, fontSize: 10 }}>Set {i + 1}</Eyebrow>
-          <Num size={14} weight="semibold">{s.weight} × {s.reps}</Num>
-          {s.fatigue && (
-            <View style={{
-              marginLeft: "auto", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
-              backgroundColor: s.fatigue === "failure" || s.fatigue === "tooTired" ? t.destructive : t.fg,
-            }}>
-              <Text style={{ fontSize: 10, fontFamily: fonts.sansSemiBold, color: s.fatigue === "failure" || s.fatigue === "tooTired" ? "#fff" : "#000" }}>
-                {FATIGUE.find((f) => f.id === s.fatigue)?.label}
-              </Text>
+      {warmupRows.length > 0 && (
+        <Animated.View layout={SET_LAYOUT}>
+          {warmupRows.map((row, i) => (
+            <View key={row.key}>
+              {i > 0 ? <Hairline /> : null}
+              {row.kind === "logged" ? (
+                <SetRow
+                  label="Warm"
+                  detail={`${row.set.weight} × ${row.set.reps}`}
+                  fresh={row.set._id === justLoggedId}
+                  onLongPress={() => confirmDelete(row.set._id)}
+                />
+              ) : (
+                <SetRow
+                  label="Warm"
+                  detail={`${row.tg.weight} × ${row.tg.reps}`}
+                  dim
+                  meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>tap to log</T>}
+                  onPress={() => void logSuggested(row.tg, true)}
+                />
+              )}
             </View>
-          )}
-        </Pressable>
-      ))}
+          ))}
+        </Animated.View>
+      )}
+
+      {workingRows.length > 0 && (
+        <Animated.View layout={SET_LAYOUT}>
+          {workingRows.map((row, i) => (
+            <View key={row.set._id}>
+              {i > 0 ? <Hairline /> : null}
+              <SetRow
+                label={`Set ${row.index + 1}`}
+                detail={`${row.set.weight} × ${row.set.reps}`}
+                fresh={row.set._id === justLoggedId}
+                meta={row.set.fatigue ? <FatigueChip fatigue={row.set.fatigue} /> : null}
+                onLongPress={() => confirmDelete(row.set._id)}
+              />
+            </View>
+          ))}
+        </Animated.View>
+      )}
 
       {/* Coach block: the engine's prescription is the focal point */}
-      <View style={{ backgroundColor: t.accentTint, borderRadius: 14, padding: 12, gap: 8 }}>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-          <Eyebrow style={{ fontSize: 10 }}>Target</Eyebrow>
-          {ghost && <Num size={11} color={t.mutedFg}>last {ghost.weight} × {ghost.reps}</Num>}
-          <Eyebrow style={{ fontSize: 10, marginLeft: "auto" }}>set {workingDone + 1}</Eyebrow>
+      <View style={{ backgroundColor: t.accentTint, borderRadius: radius.control, ...squircle, padding: space[12], gap: gap.row }}>
+        <View style={{ flexDirection: "row", alignItems: "baseline", gap: space[8] }}>
+          <Eyebrow>Target</Eyebrow>
+          {ghost && <T variant="footnote">last {ghost.weight} × {ghost.reps}</T>}
+          <Eyebrow style={{ marginLeft: "auto" }}>set {workingDone + 1}</Eyebrow>
         </View>
         {target.weight > 0 ? (
           <Pressable onPress={() => { setWeight(String(target.weight)); setReps(String(target.reps)); }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 38, color: t.fg, fontVariant: ["tabular-nums"] }}>
-              {target.weight}
-              <Text style={{ fontSize: 20, color: t.mutedFg }}> × {target.reps}</Text>
-            </Text>
-            <Body size={12} color={t.mutedFg}>{recReason} · tap to use</Body>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: space[8] }}>
+              {/* 38 keeps the set-target hero at its established size, a step above title. */}
+              <Display size={38}>{target.weight}</Display>
+              <T variant="title2" color={t.secondaryLabel}>× {target.reps}</T>
+            </View>
+            <T variant="footnote">{recReason}. Tap to use</T>
           </Pressable>
         ) : (
-          <Body size={12} color={t.mutedFg}>{recReason}</Body>
+          <T variant="footnote">{recReason}</T>
         )}
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flexDirection: "row", gap: gap.row }}>
           <Field mono value={weight} onChangeText={setWeight} placeholder={target.weight > 0 ? `${target.weight} lb` : "weight"}
             keyboardType="decimal-pad" style={{ flex: 1, textAlign: "center" }} />
           <Field mono value={reps} onChangeText={setReps} placeholder={target.reps > 0 ? `${target.reps} reps` : "reps"}
             keyboardType="number-pad" style={{ flex: 1, textAlign: "center" }} />
         </View>
         <EffortPills value={fatigue} onChange={setFatigue} />
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flexDirection: "row", gap: gap.row }}>
           <Pill label={`Log set ${workingDone + 1}`} onPress={() => void submit(false)}
-            disabled={!weight || !reps} style={{ flex: 1 }} />
-          <Pill label="Warm" kind="outline" onPress={() => void submit(true)} disabled={!weight || !reps} />
+            disabled={!weight || !reps} haptic={false} style={{ flex: 1 }} />
+          <Pill label="Warm" kind="outline" onPress={() => void submit(true)} disabled={!weight || !reps} haptic={false} />
         </View>
       </View>
 
-      {futureTargets.map((tg, i) => (
-        <View key={`ft${i}`} style={[rowStyle, { opacity: 0.45 }]}>
-          <Eyebrow style={{ width: 44, fontSize: 10 }}>Set {workingDone + 2 + i}</Eyebrow>
-          <Num size={14} color={t.mutedFg}>{tg.weight > 0 ? `${tg.weight} × ${tg.reps}` : "·"}</Num>
-          <Body size={11} color={t.mutedFg} style={{ marginLeft: "auto" }}>planned</Body>
+      {futureTargets.length > 0 && (
+        <View>
+          {futureTargets.map((tg, i) => (
+            <View key={`ft${i}`}>
+              {i > 0 ? <Hairline /> : null}
+              <SetRow
+                label={`Set ${workingDone + 2 + i}`}
+                detail={tg.weight > 0 ? `${tg.weight} × ${tg.reps}` : "·"}
+                dim
+                meta={<T variant="caption" color={t.tertiaryLabel} style={{ marginLeft: "auto" }}>planned</T>}
+              />
+            </View>
+          ))}
         </View>
-      ))}
+      )}
     </View>
   );
 
