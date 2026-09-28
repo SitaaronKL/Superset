@@ -41,8 +41,9 @@ export const addMessage = internalMutation({
 });
 
 export const send = action({
-  args: { content: v.string() },
-  handler: async (ctx, { content }): Promise<string> => {
+  // dayKey (YYYY-MM-DD, the user's local date) lets the coach see today's skincare plan.
+  args: { content: v.string(), dayKey: v.optional(v.string()) },
+  handler: async (ctx, { content, dayKey }): Promise<string> => {
     await ctx.runMutation(internal.coach.addMessage, { role: "user", content });
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -52,16 +53,18 @@ export const send = action({
       return m;
     }
 
-    const [days, summaries, memories, convo]: [
+    const [days, summaries, memories, convo, skinToday]: [
       { name: string; exerciseIds: unknown[] }[],
       { dayName: string; date: number; exerciseCount: number; setCount: number }[],
       { fact: string }[],
       { role: "user" | "assistant"; content: string }[],
+      string,
     ] = await Promise.all([
       ctx.runQuery(api.workouts.listProgramDays, {}),
       ctx.runQuery(api.workouts.sessionSummaries, {}),
       ctx.runQuery(api.memories.list, {}),
       ctx.runQuery(api.coach.history, {}),
+      ctx.runQuery(api.skin.describeDay, { dayKey: dayKey ?? new Date().toISOString().slice(0, 10) }),
     ]);
 
     const recent = summaries.slice(0, 8)
@@ -75,6 +78,7 @@ export const send = action({
       `Their training days: ${dayList || "none yet"}.\n` +
       `Recent sessions: ${recent || "none logged recently"}.\n` +
       `Known facts about them: ${memories.map((m) => m.fact).join("; ") || "none"}.\n` +
+      `Today's skincare, computed by the app (authoritative, do not change it):\n${skinToday}\n` +
       `Never invent specific weights to lift; for exact set targets, tell them the in-app coach on each exercise handles the numbers. No medical or dosing advice. ${NO_EM_DASH_RULE}`;
 
     const openai = new OpenAI({ apiKey });

@@ -143,4 +143,61 @@ export default defineSchema({
   waterLogs: defineTable({
     loggedAt: v.number(),
   }).index("by_time", ["loggedAt"]),
+
+  // ---- Skin ----
+  // Products the user owns. A product can appear in several routine steps
+  // (the moisturizer is AM, PM, and after the shower).
+  skinProducts: defineTable({
+    name: v.string(),
+    brand: v.optional(v.string()),
+    zone: v.string(), // "face" | "body" | "face+body"
+    kind: v.string(), // Cleanser, Serum, Active, Moisturizer, Sunscreen, Body wash, ...
+    why: v.optional(v.string()),
+    image: v.optional(v.id("_storage")),
+    lastsDays: v.optional(v.number()), // how long one unit lasts, for the refill watch
+    openedOn: v.optional(v.string()), // YYYY-MM-DD the current unit was opened
+    archived: v.optional(v.boolean()),
+  }),
+
+  // One step of the routine. The pure engine (skinEngine.ts) turns these into
+  // a concrete AM / PM / shower checklist for any calendar day.
+  skinSteps: defineTable({
+    productId: v.id("skinProducts"),
+    slot: v.union(v.literal("am"), v.literal("pm"), v.literal("shower")),
+    order: v.number(),
+    howTo: v.optional(v.string()),
+    days: v.optional(v.array(v.number())),
+    startWeek: v.optional(v.number()),
+    ramp: v.optional(v.array(v.object({ week: v.number(), days: v.array(v.number()) }))),
+    onShaveDay: v.optional(v.union(v.literal("normal"), v.literal("skip"), v.literal("include"))),
+    shaveNote: v.optional(v.string()),
+    group: v.optional(v.string()),
+  }).index("by_slot_and_order", ["slot", "order"]),
+
+  // What happened on a calendar day: whether they shaved (overrides the default
+  // shave weekdays) and which planned steps were checked off.
+  skinDays: defineTable({
+    dayKey: v.string(), // YYYY-MM-DD in the user's local time
+    shaved: v.optional(v.boolean()),
+    done: v.array(v.string()), // skinSteps ids, plus "shave"
+  }).index("by_dayKey", ["dayKey"]),
+
+  // Face progress photos, with an optional GPT-5.5 read of each.
+  skinPhotos: defineTable({
+    image: v.id("_storage"),
+    takenAt: v.number(),
+    note: v.optional(v.string()),
+    analysis: v.optional(v.object({
+      summary: v.string(),
+      observations: v.array(v.string()),
+      suggestions: v.array(v.string()),
+    })),
+  }).index("by_takenAt", ["takenAt"]),
+
+  // Questions asked on the Skin tab ("am I shaving today?") and the answers.
+  skinAsks: defineTable({
+    question: v.string(),
+    answer: v.string(),
+    createdAt: v.number(),
+  }).index("by_createdAt", ["createdAt"]),
 });
