@@ -1,25 +1,61 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { ScrollView, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomSheet } from "@expo/ui";
 import { RNHostView } from "@expo/ui/swift-ui";
 import { presentationBackground } from "@expo/ui/swift-ui/modifiers";
+import { SymbolView } from "expo-symbols";
 import { useQuery } from "convex/react";
-import { ChevronLeft, ChevronRight, TrendingUp } from "lucide-react-native";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { e1RM } from "../../../../convex/engine";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
-import { Body, Card, Display, Eyebrow, Num } from "@/components/ui/kit";
+import {
+  EmptyState,
+  IconButton,
+  Num,
+  Row,
+  ScreenTitle,
+  Section,
+  Skeleton,
+  Stat,
+  T,
+  gap,
+  radius,
+  space,
+  squircle,
+  type,
+} from "@/components/ui/kit";
 import { SparkLine } from "@/components/spark-line";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { palette, useTheme } from "@/lib/theme";
 
 const monthKey = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 const dayLabel = (d: number) => new Date(d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const shortDate = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const weekday = (d: number) => new Date(d).toLocaleDateString(undefined, { weekday: "short" });
 
+const FATIGUE_LABEL = { ez: "EZ", struggle: "HARD", failure: "FAIL", tooTired: "DEAD" } as const;
+type FatigueId = keyof typeof FATIGUE_LABEL;
+
+const HEADER_EXTRA = space[40] + space[16];
+const HEADER_FADE = space[56] + space[16];
+
+function sessionSubtitle(exerciseCount: number, setCount: number) {
+  const exercises = exerciseCount === 1 ? "exercise" : "exercises";
+  const sets = setCount === 1 ? "set" : "sets";
+  return `${exerciseCount} ${exercises}, ${setCount} ${sets}`;
+}
+
+function listPad(top: number, bottom: number) {
+  return {
+    paddingHorizontal: gap.screen,
+    paddingTop: top,
+    paddingBottom: bottom,
+    gap: gap.section,
+  };
+}
+
 export default function HistoryScreen() {
-  const t = useTheme();
   const pad = useScreenInsets();
   const summaries = useQuery(api.workouts.sessionSummaries);
   const [selected, setSelected] = useState<Id<"sessions"> | null>(null);
@@ -35,81 +71,150 @@ export default function HistoryScreen() {
     return out;
   }, [summaries]);
 
-  if (summaries === undefined) {
-    return (
-      <Screen>
-        <Body color={t.mutedFg} style={{ paddingHorizontal: 16, paddingTop: pad.top }}>Loading…</Body>
-        <ScreenFades />
-      </Screen>
-    );
-  }
   if (selected) return <SessionDetail sessionId={selected} onBack={() => setSelected(null)} />;
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingTop: pad.top, paddingBottom: pad.bottom }}>
-        <Display size={26}>History</Display>
+      <ScrollView contentContainerStyle={listPad(pad.top, pad.bottom)}>
+        <View style={{ gap: gap.group }}>
+          <ScreenTitle title="History" />
+          {summaries === undefined ? (
+            <View style={{ gap: space[4] }}>
+              <Skeleton width={140} height={type.caption.fontSize} />
+              <Skeleton width={56} height={28} />
+            </View>
+          ) : summaries.length > 0 ? (
+            <Stat label="sessions since day one" value={summaries.length} />
+          ) : null}
+        </View>
 
-        {summaries.length > 0 && (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 56, color: t.fg, lineHeight: 66, fontVariant: ["tabular-nums"] }}>
-              {summaries.length}
-            </Text>
-            <Body color={t.mutedFg} style={{ marginBottom: 8 }}>sessions since day one</Body>
-          </View>
+        {summaries === undefined ? (
+          <HistorySkeleton />
+        ) : summaries.length === 0 ? (
+          <EmptyState
+            symbol="calendar"
+            title="No sessions yet"
+            message="Finish a workout and it shows up here."
+          />
+        ) : (
+          months.map((m) => (
+            <Section key={m.label} header={m.label}>
+              {m.items.map((s) => (
+                <SessionRow
+                  key={s._id}
+                  date={s.date}
+                  dayName={s.dayName}
+                  exerciseCount={s.exerciseCount}
+                  setCount={s.setCount}
+                  muscleGroup={s.muscleGroup}
+                  onPress={() => setSelected(s._id)}
+                />
+              ))}
+            </Section>
+          ))
         )}
-
-        {summaries.length === 0 && (
-          <Body color={t.mutedFg}>No sessions yet. Finish a workout and it shows up here.</Body>
-        )}
-
-        {months.map((m) => (
-          <View key={m.label} style={{ gap: 8 }}>
-            <Eyebrow>{m.label}</Eyebrow>
-            {m.items.map((s) => (
-              <Pressable key={s._id} onPress={() => setSelected(s._id)}
-                style={({ pressed }) => ({
-                  backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", padding: 14,
-                  flexDirection: "row", alignItems: "center", gap: 12,
-                  borderWidth: 1, borderColor: t.hairline, opacity: pressed ? 0.7 : 1,
-                })}>
-                <View style={{ width: 44, alignItems: "center" }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 20, color: t.fg, fontVariant: ["tabular-nums"] }}>
-                    {new Date(s.date).getDate()}
-                  </Text>
-                  <Eyebrow style={{ fontSize: 10 }}>{weekday(s.date)}</Eyebrow>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Display size={15}>{s.dayName}</Display>
-                  <Body size={12} color={t.mutedFg}>{s.exerciseCount} exercises · {s.setCount} sets</Body>
-                </View>
-                {!!s.muscleGroup && (
-                  <View style={{ backgroundColor: t.muted, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                    <Eyebrow style={{ fontSize: 10 }}>{s.muscleGroup}</Eyebrow>
-                  </View>
-                )}
-                <ChevronRight size={16} color={t.mutedFg} />
-              </Pressable>
-            ))}
-          </View>
-        ))}
       </ScrollView>
       <ScreenFades />
     </Screen>
   );
 }
 
-function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBack: () => void }) {
+function HistorySkeleton() {
+  return (
+    <View style={{ gap: space[8] }}>
+      <Skeleton width={120} height={type.footnote.fontSize} style={{ marginHorizontal: space[16] }} />
+      <Section>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={{ paddingHorizontal: space[16], paddingVertical: space[12], gap: space[8] }}>
+            <Skeleton width="58%" height={type.body.fontSize} />
+            <Skeleton width="42%" height={type.footnote.fontSize} />
+          </View>
+        ))}
+      </Section>
+    </View>
+  );
+}
+
+function SessionRow({
+  date,
+  dayName,
+  exerciseCount,
+  setCount,
+  muscleGroup,
+  onPress,
+}: {
+  date: number;
+  dayName: string;
+  exerciseCount: number;
+  setCount: number;
+  muscleGroup: string;
+  onPress: () => void;
+}) {
   const t = useTheme();
-  const pad = useScreenInsets(56);
+  return (
+    <Row
+      title={dayName}
+      subtitle={sessionSubtitle(exerciseCount, setCount)}
+      onPress={onPress}
+      leading={
+        <View style={{ width: space[40], alignItems: "center" }}>
+          <Num size={type.title2.fontSize} weight="semibold">{new Date(date).getDate()}</Num>
+          <T variant="caption">{weekday(date)}</T>
+        </View>
+      }
+      accessory={
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
+          {muscleGroup ? (
+            <View
+              style={{
+                backgroundColor: t.elevated2,
+                borderRadius: radius.full,
+                paddingHorizontal: space[8],
+                paddingVertical: space[4],
+              }}
+            >
+              <T variant="caption" color={t.secondaryLabel} numberOfLines={1}>{muscleGroup}</T>
+            </View>
+          ) : null}
+          <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
+        </View>
+      }
+    />
+  );
+}
+
+function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBack: () => void }) {
+  const pad = useScreenInsets(HEADER_EXTRA);
   const detail = useQuery(api.workouts.sessionDetail, { sessionId });
   const [trend, setTrend] = useState<{ id: Id<"exercises">; name: string } | null>(null);
+
+  const bestIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!detail) return ids;
+    let best = 0;
+    for (const g of detail.groups) {
+      for (const s of g.sets) {
+        if (s.isWarmup) continue;
+        const v = e1RM(s.weight, s.reps);
+        if (v > best) {
+          best = v;
+          ids.clear();
+          ids.add(s._id);
+        } else if (v === best && best > 0) {
+          ids.add(s._id);
+        }
+      }
+    }
+    return ids;
+  }, [detail]);
 
   if (detail === undefined) {
     return (
       <Screen>
-        <Body color={t.mutedFg} style={{ paddingHorizontal: 16, paddingTop: pad.top }}>Loading…</Body>
-        <ScreenFades topFade={72} />
+        <ScrollView contentContainerStyle={listPad(pad.top, pad.bottom)}>
+          <DetailSkeleton />
+        </ScrollView>
+        <ScreenFades topFade={HEADER_FADE} />
         <DetailHeader onBack={onBack} />
       </Screen>
     );
@@ -117,8 +222,10 @@ function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBac
   if (!detail) {
     return (
       <Screen>
-        <Body color={t.mutedFg} style={{ paddingHorizontal: 16, paddingTop: pad.top }}>Session not found.</Body>
-        <ScreenFades topFade={72} />
+        <ScrollView contentContainerStyle={listPad(pad.top, pad.bottom)}>
+          <EmptyState symbol="questionmark.circle" title="Session not found" />
+        </ScrollView>
+        <ScreenFades topFade={HEADER_FADE} />
         <DetailHeader onBack={onBack} />
       </Screen>
     );
@@ -126,56 +233,151 @@ function SessionDetail({ sessionId, onBack }: { sessionId: Id<"sessions">; onBac
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingTop: pad.top, paddingBottom: pad.bottom }}>
+      <ScrollView contentContainerStyle={listPad(pad.top, pad.bottom)}>
         {detail.groups.map((g) => (
-          <Card key={g.exerciseName} style={{ gap: 8 }}>
-            <Pressable onPress={() => setTrend({ id: g.exerciseId, name: g.exerciseName })}
-              style={{ gap: 2 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Display size={15}>{g.exerciseName}</Display>
-                <TrendingUp size={13} color={t.mutedFg} />
-              </View>
-              <Eyebrow style={{ fontSize: 10 }}>{g.muscleGroup}</Eyebrow>
-            </Pressable>
+          <Section
+            key={g.exerciseName}
+            header={
+              <ExerciseHeader
+                name={g.exerciseName}
+                muscleGroup={g.muscleGroup}
+                onPressTrend={() => setTrend({ id: g.exerciseId, name: g.exerciseName })}
+              />
+            }
+          >
             {g.sets.map((s, i) => (
-              <View key={s._id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4, borderTopWidth: i === 0 ? 0 : 1, borderColor: t.hairline }}>
-                <Eyebrow style={{ width: 48, fontSize: 10 }}>{s.isWarmup ? "Warm" : `Set ${i + 1}`}</Eyebrow>
-                <Num size={14} weight="semibold">{s.weight} × {s.reps}</Num>
-                {s.fatigue && (
-                  <View style={{
-                    marginLeft: "auto", borderRadius: 6, borderCurve: "continuous", paddingHorizontal: 6, paddingVertical: 2,
-                    backgroundColor: s.fatigue === "failure" || s.fatigue === "tooTired" ? t.destructive : t.muted,
-                  }}>
-                    <Text style={{ fontSize: 10, fontFamily: fonts.sansSemiBold, color: s.fatigue === "failure" || s.fatigue === "tooTired" ? "#fff" : t.mutedFg }}>
-                      {s.fatigue === "ez" ? "EZ" : s.fatigue === "struggle" ? "HARD" : s.fatigue === "failure" ? "FAIL" : "DEAD"}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              <Row
+                key={s._id}
+                title={s.isWarmup ? "Warm" : `Set ${i + 1}`}
+                accessory={
+                  <SetTrailing
+                    weight={s.weight}
+                    reps={s.reps}
+                    fatigue={s.fatigue}
+                    personalBest={bestIds.has(s._id)}
+                  />
+                }
+              />
             ))}
-          </Card>
+          </Section>
         ))}
       </ScrollView>
-      <ScreenFades topFade={72} />
+      <ScreenFades topFade={HEADER_FADE} />
       <DetailHeader onBack={onBack} title={detail.dayName} subtitle={dayLabel(detail.date)} />
       <TrendSheet trend={trend} onClose={() => setTrend(null)} />
     </Screen>
   );
 }
 
-function DetailHeader({ onBack, title, subtitle }: { onBack: () => void; title?: string; subtitle?: string }) {
+function DetailSkeleton() {
+  return (
+    <View style={{ gap: gap.section }}>
+      {[0, 1].map((n) => (
+        <View key={n} style={{ gap: space[8] }}>
+          <Skeleton width="46%" height={type.headline.fontSize} style={{ marginHorizontal: space[16] }} />
+          <Section>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={{ paddingHorizontal: space[16], paddingVertical: space[12] }}>
+                <Skeleton width="70%" height={type.body.fontSize} />
+              </View>
+            ))}
+          </Section>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ExerciseHeader({
+  name,
+  muscleGroup,
+  onPressTrend,
+}: {
+  name: string;
+  muscleGroup: string;
+  onPressTrend: () => void;
+}) {
   const t = useTheme();
+  return (
+    <View style={{ paddingHorizontal: space[16], flexDirection: "row", alignItems: "center", gap: space[8] }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <T variant="headline" color={t.label} numberOfLines={2}>{name}</T>
+        {muscleGroup ? <T variant="footnote">{muscleGroup}</T> : null}
+      </View>
+      <IconButton
+        name="chart.xyaxis.line"
+        size={18}
+        color={t.secondaryLabel}
+        accessibilityLabel={`${name} trend`}
+        onPress={onPressTrend}
+      />
+    </View>
+  );
+}
+
+function SetTrailing({
+  weight,
+  reps,
+  fatigue,
+  personalBest,
+}: {
+  weight: number;
+  reps: number;
+  fatigue?: string;
+  personalBest: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space[8] }}>
+      {personalBest ? <T variant="caption" color={t.accent}>PB</T> : null}
+      <Num size={type.subhead.fontSize} weight="semibold">{weight} x {reps}</Num>
+      {fatigue ? <EffortTag fatigue={fatigue} /> : null}
+    </View>
+  );
+}
+
+function EffortTag({ fatigue }: { fatigue: string }) {
+  const t = useTheme();
+  const hard = fatigue === "failure" || fatigue === "tooTired";
+  const label = FATIGUE_LABEL[fatigue as FatigueId] ?? fatigue.toUpperCase();
+  return (
+    <View
+      style={{
+        backgroundColor: hard ? t.destructive : t.elevated2,
+        borderRadius: radius.sm,
+        ...squircle,
+        paddingHorizontal: space[8],
+        paddingVertical: space[4],
+        minWidth: space[40],
+        alignItems: "center",
+      }}
+    >
+      <T variant="caption" color={hard ? t.label : t.secondaryLabel}>{label}</T>
+    </View>
+  );
+}
+
+function DetailHeader({ onBack, title, subtitle }: { onBack: () => void; title?: string; subtitle?: string }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ position: "absolute", top: insets.top, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
-      <Pressable onPress={onBack} accessibilityLabel="Back"
-        style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center" }}>
-        <ChevronLeft size={18} color={t.fg} />
-      </Pressable>
+    <View
+      style={{
+        position: "absolute",
+        top: insets.top,
+        left: 0,
+        right: 0,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space[12],
+        paddingHorizontal: gap.screen,
+        paddingVertical: space[8],
+      }}
+    >
+      <IconButton name="chevron.left" variant="glass" accessibilityLabel="Back" onPress={onBack} />
       {title ? (
-        <View style={{ flex: 1, flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-          <Display size={22} numberOfLines={1} style={{ flexShrink: 1 }}>{title}</Display>
-          {subtitle ? <Body size={12} color={t.mutedFg} numberOfLines={1}>{subtitle}</Body> : null}
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="title2" numberOfLines={1}>{title}</T>
+          {subtitle ? <T variant="subhead" numberOfLines={1}>{subtitle}</T> : null}
         </View>
       ) : null}
     </View>
@@ -186,12 +388,11 @@ function TrendSheet({ trend, onClose }: {
   trend: { id: Id<"exercises">; name: string } | null;
   onClose: () => void;
 }) {
-  const t = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const data = useQuery(api.workouts.exerciseTrend, trend ? { exerciseId: trend.id } : "skip");
   // The sheet already insets 16pt on each side.
-  const contentWidth = Math.max(0, width - 32);
+  const contentWidth = Math.max(0, width - gap.screen * 2);
 
   return (
     <BottomSheet
@@ -200,32 +401,34 @@ function TrendSheet({ trend, onClose }: {
       modifiers={[presentationBackground(palette.bg)]}
     >
       <RNHostView matchContents>
-        <View style={{ width: contentWidth, gap: 14, paddingBottom: Math.max(insets.bottom, 12) }}>
-          <Display size={24}>{trend?.name}</Display>
+        <View style={{ width: contentWidth, gap: gap.group, paddingBottom: Math.max(insets.bottom, space[12]) }}>
+          <T variant="title2">{trend?.name}</T>
           {data === undefined ? (
-            <Body color={t.mutedFg}>Loading…</Body>
+            <View style={{ gap: space[12] }}>
+              <Skeleton width="40%" height={28} />
+              <Skeleton width="100%" height={56} />
+            </View>
           ) : data.points.length < 2 ? (
-            <Body color={t.mutedFg}>Not enough sessions yet. Log this lift a couple more times and the trend shows up here.</Body>
+            <T variant="subhead">Not enough sessions yet. Log this lift a couple more times and the trend shows up here.</T>
           ) : (
-            <View style={{ gap: 12 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
-                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 44, color: t.fg, fontVariant: ["tabular-nums"] }}>
-                    {data.points[data.points.length - 1].topWeight}
-                  </Text>
-                  <Body size={12} color={t.mutedFg} style={{ marginBottom: 6 }}>top set last time</Body>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Num size={18}>{data.bestE1RM}</Num>
-                  <Body size={11} color={t.mutedFg}>best est. 1RM</Body>
-                </View>
+            <View style={{ gap: space[12] }}>
+              <View style={{ flexDirection: "row", gap: gap.group }}>
+                <Stat
+                  label="top set last time"
+                  value={data.points[data.points.length - 1].topWeight}
+                  style={{ flex: 1 }}
+                />
+                <Stat label="best est. 1RM" value={data.bestE1RM} style={{ flex: 1 }} />
               </View>
-              <SparkLine values={data.points.map((p) => p.topWeight)} width={contentWidth}
-                refValue={Math.max(...data.points.map((p) => p.topWeight))} />
+              <SparkLine
+                values={data.points.map((p) => p.topWeight)}
+                width={contentWidth}
+                refValue={Math.max(...data.points.map((p) => p.topWeight))}
+              />
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Body size={11} color={t.mutedFg}>{shortDate(data.points[0].date)}</Body>
-                <Body size={11} color={t.mutedFg}>{data.points.length} sessions</Body>
-                <Body size={11} color={t.mutedFg}>{shortDate(data.points[data.points.length - 1].date)}</Body>
+                <T variant="caption">{shortDate(data.points[0].date)}</T>
+                <T variant="caption">{data.points.length} sessions</T>
+                <T variant="caption">{shortDate(data.points[data.points.length - 1].date)}</T>
               </View>
             </View>
           )}
