@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowUp, Trash2 } from "lucide-react-native";
 import { Host } from "@expo/ui";
-import { Button, ConfirmationDialog, RNHostView, Text } from "@expo/ui/swift-ui";
+import { Button, ConfirmationDialog, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
+import { SymbolView } from "expo-symbols";
+import Animated, { useReducedMotion } from "react-native-reanimated";
 import {
   AssistantRuntimeProvider,
   AuiIf,
@@ -19,8 +28,10 @@ import {
 import { api } from "../../../../convex/_generated/api";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
-import { Body, Display, radius, squircle } from "@/components/ui/kit";
+import { IconButton, ScreenTitle, T, gap, motion, radius, space, squircle, type } from "@/components/ui/kit";
 import { fonts, palette, useTheme } from "@/lib/theme";
+import { tap, warning } from "@/lib/haptics";
+import { todayKey } from "@/lib/day";
 
 // The coach chat runs on assistant-ui's React Native primitives. Convex owns
 // the transcript (coach.history); the external-store runtime mirrors it and
@@ -56,7 +67,7 @@ export default function CoachScreen() {
       .trim();
     if (!text) return;
     setBusy(true); setError(null);
-    try { await send({ content: text }); }
+    try { await send({ content: text, dayKey: todayKey() }); }
     catch { setError("Couldn't reach the coach. Try again."); }
     finally { setBusy(false); }
   }, [send]);
@@ -79,8 +90,7 @@ export default function CoachScreen() {
 function CoachThread({ error }: { error: string | null }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  // 12 (default) + 48 lines the first message up with the top fade under the header.
-  const pad = useScreenInsets(48);
+  const pad = useScreenInsets();
   const hasMessages = useAuiState((s) => !s.thread.isEmpty);
 
   // The native tab bar sits under the content. Clear it while the keyboard is
@@ -91,7 +101,7 @@ function CoachThread({ error }: { error: string | null }) {
     const hide = Keyboard.addListener("keyboardWillHide", () => setKeyboardUp(false));
     return () => { show.remove(); hide.remove(); };
   }, []);
-  const composerBottom = keyboardUp ? 8 : insets.bottom + TAB_BAR_CLEARANCE;
+  const composerBottom = keyboardUp ? gap.row : insets.bottom + TAB_BAR_CLEARANCE;
 
   const [composerHeight, setComposerHeight] = useState(120);
   const components = useMemo(() => ({ UserMessage, AssistantMessage }), []);
@@ -104,71 +114,128 @@ function CoachThread({ error }: { error: string | null }) {
             <ThreadPrimitive.MessagesFlatList
               components={components}
               contentContainerStyle={{
-                paddingHorizontal: 16,
+                paddingHorizontal: gap.screen,
                 paddingTop: pad.top,
-                paddingBottom: composerHeight + 16,
-                gap: 10,
+                paddingBottom: composerHeight + gap.group,
+                gap: gap.group,
                 flexGrow: 1,
               }}
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
-              ListHeaderComponent={
-                <AuiIf condition={(s) => s.thread.isEmpty}>
-                  <EmptyState />
-                </AuiIf>
-              }
+              ListHeaderComponent={<CoachHeader hasMessages={hasMessages} />}
               ListFooterComponent={
-                <View style={{ gap: 10 }}>
+                <View style={{ gap: gap.row }}>
                   <AuiIf condition={(s) => s.thread.isRunning}>
-                    <View style={{ alignSelf: "flex-start", backgroundColor: t.muted, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-                      <Body size={14} color={t.mutedFg}>…</Body>
-                    </View>
+                    <TypingDots />
                   </AuiIf>
-                  {error && (
-                    <View style={{ alignSelf: "flex-start", backgroundColor: t.destructive + "22", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-                      <Body size={14} color={t.destructive}>{error}</Body>
-                    </View>
-                  )}
+                  {error ? (
+                    <T variant="footnote" color={t.destructive} selectable>
+                      {error}
+                    </T>
+                  ) : null}
                 </View>
               }
             />
-          </ThreadPrimitive.Root>
 
-          <ScreenFades topFade={88} bottom={false} />
+            <ScreenFades topFade={28} bottom={false} />
 
-          {/* Composer stays above ScreenFades; its own fade covers the tab bar. */}
-          <View
-            onLayout={(e) => setComposerHeight(e.nativeEvent.layout.height)}
-            style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 2, paddingHorizontal: 16, paddingTop: 28, paddingBottom: composerBottom }}
-          >
-            <BottomFade />
-            <ComposerPrimitive.Root
+            {/* Composer stays above ScreenFades; its own fade covers the tab bar. */}
+            <View
+              onLayout={(e) => setComposerHeight(e.nativeEvent.layout.height)}
               style={{
-                flexDirection: "row", alignItems: "flex-end", gap: 8,
-                backgroundColor: t.card, borderRadius: 26, borderCurve: "continuous",
-                borderWidth: 1, borderColor: t.hairline, paddingLeft: 18, paddingRight: 6, paddingVertical: 6,
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 2,
+                paddingHorizontal: gap.screen,
+                paddingTop: space[24],
+                paddingBottom: composerBottom,
+                gap: gap.row,
               }}
             >
-              <ComposerPrimitive.Input
-                placeholder="Ask anything"
-                placeholderTextColor={t.mutedFg}
-                multiline
-                style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingVertical: 10, color: t.fg, fontSize: 16, fontFamily: fonts.sans }}
-              />
-              <SendButton />
-            </ComposerPrimitive.Root>
-          </View>
+              <BottomFade />
+              {!hasMessages ? <SuggestionChips /> : null}
+              <ComposerPrimitive.Root
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-end",
+                  gap: gap.row,
+                  backgroundColor: t.elevated,
+                  borderRadius: radius.sheet,
+                  ...squircle,
+                  paddingLeft: space[16],
+                  paddingRight: space[4],
+                  paddingVertical: space[4],
+                }}
+              >
+                <ComposerPrimitive.Input
+                  placeholder="Ask anything"
+                  placeholderTextColor={t.tertiaryLabel}
+                  multiline
+                  style={{
+                    flex: 1,
+                    minHeight: 40,
+                    maxHeight: 120,
+                    paddingVertical: space[8],
+                    color: t.label,
+                    fontSize: type.body.fontSize,
+                    lineHeight: type.body.lineHeight,
+                    letterSpacing: type.body.letterSpacing,
+                    fontFamily: fonts.sans,
+                  }}
+                />
+                <SendButton />
+              </ComposerPrimitive.Root>
+            </View>
+          </ThreadPrimitive.Root>
         </View>
       </KeyboardAvoidingView>
-
-      <View
-        pointerEvents="box-none"
-        style={{ position: "absolute", top: insets.top, left: 0, right: 0, zIndex: 3, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 6 }}
-      >
-        <Display size={24}>Coach</Display>
-        {hasMessages && <ClearChatButton />}
-      </View>
     </Screen>
+  );
+}
+
+function CoachHeader({ hasMessages }: { hasMessages: boolean }) {
+  return (
+    <View style={{ gap: gap.group, paddingBottom: hasMessages ? space[8] : space[16] }}>
+      <ScreenTitle title="Coach" accessory={hasMessages ? <ClearChatButton /> : undefined} />
+      {!hasMessages ? (
+        <T variant="subhead">
+          Your coach knows your program, history, and goals. Ask anything, or lock in a routine.
+        </T>
+      ) : null}
+    </View>
+  );
+}
+
+function SuggestionChips() {
+  const t = useTheme();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ gap: gap.row, paddingRight: space[8] }}
+    >
+      {SUGGESTIONS.map((s) => (
+        <ThreadPrimitive.Suggestion
+          key={s}
+          prompt={s}
+          send
+          onPressIn={() => tap()}
+          style={({ pressed }) => ({
+            backgroundColor: t.elevated2,
+            borderRadius: radius.full,
+            paddingHorizontal: space[16],
+            paddingVertical: space[8],
+            opacity: pressed ? 0.78 : 1,
+            transform: [{ scale: pressed ? 0.97 : 1 }],
+          })}
+        >
+          <T variant="caption" color={t.label}>{s}</T>
+        </ThreadPrimitive.Suggestion>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -178,7 +245,7 @@ function ClearChatButton() {
   const [open, setOpen] = useState(false);
 
   return (
-    <Host matchContents colorScheme="dark" style={{ width: 32, height: 32 }}>
+    <Host matchContents colorScheme="dark" style={{ width: 40, height: 40 }}>
       <ConfirmationDialog
         title="Clear chat?"
         isPresented={open}
@@ -187,22 +254,28 @@ function ClearChatButton() {
       >
         <ConfirmationDialog.Trigger>
           <RNHostView matchContents>
-            <Pressable
-              onPress={() => setOpen(true)}
+            <IconButton
+              name="trash"
+              variant="plain"
+              color={t.secondaryLabel}
               accessibilityLabel="Clear chat"
-              hitSlop={8}
-              style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}
-            >
-              <Trash2 size={16} color={t.mutedFg} />
-            </Pressable>
+              onPress={() => setOpen(true)}
+            />
           </RNHostView>
         </ConfirmationDialog.Trigger>
         <ConfirmationDialog.Actions>
-          <Button role="destructive" label="Clear chat" onPress={() => void clearChat()} />
+          <Button
+            role="destructive"
+            label="Clear chat"
+            onPress={() => {
+              warning();
+              void clearChat();
+            }}
+          />
           <Button role="cancel" label="Cancel" />
         </ConfirmationDialog.Actions>
         <ConfirmationDialog.Message>
-          <Text>Every message in this conversation will be deleted.</Text>
+          <SwiftText>Every message in this conversation will be deleted.</SwiftText>
         </ConfirmationDialog.Message>
       </ConfirmationDialog>
     </Host>
@@ -215,15 +288,63 @@ function SendButton() {
   return (
     <ComposerPrimitive.Send
       accessibilityLabel="Send"
+      onPressIn={() => { if (canSend) tap(); }}
       style={({ pressed }) => ({
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: canSend ? t.fg : t.muted,
-        borderWidth: canSend ? 0 : 1, borderColor: t.border,
-        alignItems: "center", justifyContent: "center", opacity: pressed ? 0.75 : 1,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: canSend ? t.label : t.elevated2,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.78 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
       })}
     >
-      <ArrowUp size={20} strokeWidth={2.5} color={canSend ? palette.bg : t.mutedFg} />
+      <SymbolView
+        name="arrow.up"
+        size={18}
+        tintColor={canSend ? palette.bg : t.tertiaryLabel}
+        weight="semibold"
+        resizeMode="scaleAspectFit"
+      />
     </ComposerPrimitive.Send>
+  );
+}
+
+function TypingDots() {
+  const t = useTheme();
+  const reduced = useReducedMotion();
+  return (
+    <View
+      accessibilityLabel="Coach is typing"
+      style={{ flexDirection: "row", alignItems: "center", gap: space[8], paddingVertical: space[8] }}
+    >
+      {[0, 1, 2].map((i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: space[8],
+            height: space[8],
+            borderRadius: space[8] / 2,
+            backgroundColor: t.secondaryLabel,
+            opacity: reduced ? 0.45 : 0.3,
+            ...(reduced
+              ? {}
+              : {
+                  animationName: {
+                    from: { opacity: 0.28 },
+                    to: { opacity: 0.92 },
+                  },
+                  animationDuration: motion.duration.slow,
+                  animationDelay: i * 140,
+                  animationIterationCount: "infinite" as const,
+                  animationDirection: "alternate" as const,
+                  animationTimingFunction: "ease-in-out" as const,
+                }),
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -244,39 +365,134 @@ function BottomFade() {
   );
 }
 
-function EmptyState() {
-  const t = useTheme();
-  return (
-    <View style={{ alignItems: "center", gap: 12, marginTop: 40, paddingHorizontal: 12 }}>
-      <Body color={t.mutedFg} style={{ textAlign: "center" }}>
-        Your coach knows your program, history, and goals. Ask anything, or lock in a routine.
-      </Body>
-      <View style={{ gap: 8, width: "100%", marginTop: 8 }}>
-        {SUGGESTIONS.map((s) => (
-          <ThreadPrimitive.Suggestion key={s} prompt={s} send
-            style={{ borderRadius: radius.control, ...squircle, borderWidth: 1, borderColor: t.border, paddingHorizontal: 16, paddingVertical: 12 }}>
-            <Body size={13}>{s}</Body>
-          </ThreadPrimitive.Suggestion>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function UserMessage() {
   const t = useTheme();
   return (
-    <MessagePrimitive.Root style={{ alignSelf: "flex-end", maxWidth: "86%", backgroundColor: t.accent, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-      <MessagePrimitive.Content renderText={({ part }) => <Body size={14} color={t.accentFg}>{part.text}</Body>} />
+    <MessagePrimitive.Root
+      style={{
+        alignSelf: "flex-end",
+        maxWidth: "80%",
+        backgroundColor: t.accent,
+        borderRadius: radius.card,
+        ...squircle,
+        paddingHorizontal: space[16],
+        paddingVertical: space[8],
+      }}
+    >
+      <MessagePrimitive.Content
+        renderText={({ part }) => (
+          <T variant="callout" color={t.accentFg} selectable>{part.text}</T>
+        )}
+      />
     </MessagePrimitive.Root>
   );
 }
 
 function AssistantMessage() {
-  const t = useTheme();
   return (
-    <MessagePrimitive.Root style={{ alignSelf: "flex-start", maxWidth: "86%", backgroundColor: t.muted, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}>
-      <MessagePrimitive.Content renderText={({ part }) => <Body size={14} color={t.fg}>{part.text}</Body>} />
+    <MessagePrimitive.Root style={{ alignSelf: "stretch" }}>
+      <MessagePrimitive.Content
+        renderText={({ part }) => <MarkdownText text={part.text} />}
+      />
     </MessagePrimitive.Root>
+  );
+}
+
+// Tiny markdown: paragraphs, numbered/bulleted lists, and **bold**. No extra deps.
+type MdBlock =
+  | { kind: "p"; text: string }
+  | { kind: "ul"; items: string[] }
+  | { kind: "ol"; items: { n: string; text: string }[] };
+
+const UL_RE = /^\s*[-*]\s+(.*)$/;
+const OL_RE = /^\s*(\d+)\.\s+(.*)$/;
+
+function parseMarkdown(src: string): MdBlock[] {
+  const lines = src.replace(/\r\n/g, "\n").split("\n");
+  const blocks: MdBlock[] = [];
+  let para: string[] = [];
+
+  const flushPara = () => {
+    const text = para.join("\n").trim();
+    para = [];
+    if (text) blocks.push({ kind: "p", text });
+  };
+
+  for (const line of lines) {
+    const ul = line.match(UL_RE);
+    const ol = line.match(OL_RE);
+    if (ul) {
+      flushPara();
+      const last = blocks[blocks.length - 1];
+      if (last?.kind === "ul") last.items.push(ul[1] ?? "");
+      else blocks.push({ kind: "ul", items: [ul[1] ?? ""] });
+    } else if (ol) {
+      flushPara();
+      const last = blocks[blocks.length - 1];
+      if (last?.kind === "ol") last.items.push({ n: ol[1] ?? "1", text: ol[2] ?? "" });
+      else blocks.push({ kind: "ol", items: [{ n: ol[1] ?? "1", text: ol[2] ?? "" }] });
+    } else if (line.trim() === "") {
+      flushPara();
+    } else {
+      para.push(line);
+    }
+  }
+  flushPara();
+  return blocks;
+}
+
+function Inline({ text, color }: { text: string; color: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <Text selectable style={{ color, ...type.body }}>
+      {parts.map((p, i) => {
+        const bold = /^\*\*([^*]+)\*\*$/.exec(p);
+        if (bold) {
+          return (
+            <Text key={i} style={{ fontFamily: fonts.sansSemiBold }}>
+              {bold[1]}
+            </Text>
+          );
+        }
+        return <Text key={i}>{p}</Text>;
+      })}
+    </Text>
+  );
+}
+
+function MarkdownText({ text }: { text: string }) {
+  const t = useTheme();
+  const blocks = useMemo(() => parseMarkdown(text), [text]);
+  return (
+    <View style={{ gap: gap.row }}>
+      {blocks.map((b, i) => {
+        if (b.kind === "p") return <Inline key={i} text={b.text} color={t.label} />;
+        const items: { marker: string; body: string }[] =
+          b.kind === "ul"
+            ? b.items.map((item) => ({ marker: "•", body: item }))
+            : b.items.map((item) => ({ marker: `${item.n}.`, body: item.text }));
+        return (
+          <View key={i} style={{ gap: space[4] }}>
+            {items.map((item, j) => (
+              <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start" }}>
+                <Text
+                  style={{
+                    color: t.label,
+                    ...type.body,
+                    minWidth: space[24],
+                    fontFamily: fonts.sans,
+                  }}
+                >
+                  {item.marker}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Inline text={item.body} color={t.label} />
+                </View>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </View>
   );
 }
