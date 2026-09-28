@@ -79,23 +79,32 @@ export const day = query({
     const done = new Set(today?.done ?? []);
     const mark = (list: DayPlan["am"]) => list.map((s) => ({ ...s, done: done.has(s.id) }));
 
-    // The last 14 days, oldest first, today last.
-    const history = [];
+    // The last 14 days, oldest first, today last. Days before the routine
+    // started never count against the user.
+    const history: { dayKey: string; planned: string[]; done: string[]; plan: DayPlan }[] = [];
     for (let i = 13; i >= 0; i--) {
       const key = addDays(dayKey, -i);
+      if (settings.startDate && key < settings.startDate) continue;
       const rec = i === 0 ? today : await dayRecord(ctx, key);
       const p = planForDay(steps, settings, key, rec?.shaved);
       history.push({ dayKey: key, planned: plannedIds(p), done: rec?.done ?? [], plan: p });
     }
-    const hasHistory = history.some((d) => d.done.length > 0);
+    const past = history.slice(0, -1); // finished days, today excluded
 
-    const yesterday = history[history.length - 2];
-    const yDone = new Set(yesterday.done);
-    const missedYesterday = hasHistory
+    const yesterday = past[past.length - 1];
+    const yDone = new Set(yesterday?.done ?? []);
+    const missedYesterday = yesterday && yesterday.dayKey === addDays(dayKey, -1)
       ? [...yesterday.plan.am, ...yesterday.plan.pm, ...yesterday.plan.shower]
           .filter((s) => !yDone.has(s.id))
           .map((s) => ({ slot: s.slot, productName: s.productName }))
       : [];
+
+    // The 7-day strip always shows 7 days; days before the start read as empty.
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const key = addDays(dayKey, i - 6);
+      const d = history.find((h) => h.dayKey === key);
+      return { dayKey: key, completion: d ? completion(d) : 0, beforeStart: !d };
+    });
 
     const tomorrow = planForDay(steps, settings, addDays(dayKey, 1), (await dayRecord(ctx, addDays(dayKey, 1)))?.shaved);
 
@@ -110,8 +119,8 @@ export const day = query({
       pm: mark(plan.pm),
       shower: mark(plan.shower),
       streak: streak(history),
-      week: history.slice(-7).map((d) => ({ dayKey: d.dayKey, completion: completion(d) })),
-      adherence14: hasHistory ? history.slice(0, -1).reduce((a, d) => a + completion(d), 0) / 13 : null,
+      week,
+      adherence14: past.length > 0 ? past.reduce((a, d) => a + completion(d), 0) / past.length : null,
       missedYesterday,
       tomorrow: { shaved: tomorrow.shaved, pmActive: tomorrow.pm.find((s) => s.kind === "Active")?.productName ?? null },
       hasRoutine: steps.length > 0,

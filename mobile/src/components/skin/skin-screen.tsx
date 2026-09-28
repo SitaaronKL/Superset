@@ -190,13 +190,17 @@ function Accountability({ day, products }: {
   const t = useTheme();
   const missed = day.missedYesterday;
   const adherence = day.adherence14;
-  const missedLine = missed.length > 0
-    ? `Yesterday you skipped: ${missed.map((m) => {
-        const { name } = productParts(m.productName, products);
-        const tagLabel = m.slot === "pm" ? " (PM)" : m.slot === "shower" ? " (shower)" : "";
-        return `${name}${tagLabel}`;
-      }).join(", ")}`
-    : null;
+  // Name at most three things, so a fully skipped day reads as one calm line.
+  const missedNames = missed.map((m) => {
+    const { name } = productParts(m.productName, products);
+    const tagLabel = m.slot === "pm" ? " (PM)" : m.slot === "shower" ? " (shower)" : "";
+    return `${name}${tagLabel}`;
+  });
+  const missedLine = missedNames.length === 0
+    ? null
+    : missedNames.length > 3
+      ? `Yesterday you skipped ${missedNames.slice(0, 2).join(", ")} and ${missedNames.length - 2} more. Today is a fresh start.`
+      : `Yesterday you skipped: ${missedNames.join(", ")}.`;
 
   return (
     <View style={{ gap: 10 }}>
@@ -208,9 +212,9 @@ function Accountability({ day, products }: {
           </View>
           <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
             <Num size={17}>
-              {adherence === null ? "·" : `${Math.round(adherence * 100)}%`}
+              {adherence === null ? "New" : `${Math.round(adherence * 100)}%`}
             </Num>
-            <Body size={11} color={t.mutedFg}>14-day adherence</Body>
+            <Body size={11} color={t.mutedFg}>{adherence === null ? "adherence starts tomorrow" : "14-day adherence"}</Body>
           </View>
         </View>
         <WeekRings week={day.week} />
