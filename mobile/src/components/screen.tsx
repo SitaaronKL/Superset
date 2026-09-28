@@ -49,7 +49,8 @@ export function ScreenFades({ topFade = 28, bottom = true }: {
 export function EdgeFade({ edge, height }: { edge: "top" | "bottom"; height: number }) {
   const t = useTheme();
   const stops = edge === "top"
-    ? [[0, 1], [0.45, 0.9], [1, 0]]
+    // Stays nearly solid through the header row, then melts into the content.
+    ? [[0, 1], [0.6, 0.96], [1, 0]]
     : [[0, 0], [0.4, 0.75], [1, 1]];
   const gradient = (id: string, color: string, scale: number) => (
     <Svg style={StyleSheet.absoluteFill}>

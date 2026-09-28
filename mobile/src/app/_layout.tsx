@@ -61,6 +61,8 @@ function ThemedShell() {
           }}
         />
         <Stack.Screen name="skin" />
+        {/* Coach's chat list slides in from the left, like ChatGPT's sidebar. */}
+        <Stack.Screen name="chats" options={{ animation: "slide_from_left", gestureDirection: "horizontal" }} />
       </Stack>
     </View>
   );

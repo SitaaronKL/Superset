@@ -99,11 +99,26 @@ export default defineSchema({
   }).index("by_key", ["key"]),
 
   // Agentic coach chat. One row per message in the conversation.
+  // Coach conversations, ChatGPT style: many chats, each with a title.
+  chatThreads: defineTable({
+    title: v.string(),
+    // True until the model names the chat from its first exchange.
+    autoTitle: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    pinned: v.optional(v.boolean()),
+    archived: v.optional(v.boolean()),
+  }).index("by_updatedAt", ["updatedAt"]),
+
   chatMessages: defineTable({
+    // Optional only so pre-thread rows validate; the backfill assigns every row a thread.
+    threadId: v.optional(v.id("chatThreads")),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     createdAt: v.number(),
-  }).index("by_time", ["createdAt"]),
+  })
+    .index("by_time", ["createdAt"])
+    .index("by_threadId_and_createdAt", ["threadId", "createdAt"]),
 
   // Body-weight log: one entry per weigh-in.
   bodyWeight: defineTable({

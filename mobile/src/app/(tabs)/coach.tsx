@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -13,7 +13,11 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Host } from "@expo/ui";
-import { Button, ConfirmationDialog, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
+import { Button, Image as SwiftImage, Menu } from "@expo/ui/swift-ui";
+import { frame } from "@expo/ui/swift-ui/modifiers";
+import * as Clipboard from "expo-clipboard";
+import { useRouter } from "expo-router";
+import { Share } from "react-native";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import Animated, { useReducedMotion } from "react-native-reanimated";
 import {
@@ -27,12 +31,14 @@ import {
   type ThreadMessageLike,
 } from "@assistant-ui/react-native";
 import { api } from "../../../../convex/_generated/api";
-import type { Doc } from "../../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { setCurrentThread, useCurrentThread } from "@/lib/coach-thread";
+import { useChatActions } from "@/components/coach/chat-actions";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { GlassPill, IconButton, T, gap, motion, space, squircle, type } from "@/components/ui/kit";
 import { SuggestionCard } from "@/components/ui/suggestion-card";
 import { sf, useTheme } from "@/lib/theme";
-import { tap, warning } from "@/lib/haptics";
+import { success, tap } from "@/lib/haptics";
 import { todayKey } from "@/lib/day";
 
 // The coach chat runs on assistant-ui's React Native primitives. Convex owns
@@ -69,9 +75,15 @@ const convertMessage = (m: Doc<"chatMessages">): ThreadMessageLike => ({
   createdAt: new Date(m.createdAt),
 });
 
+// Lets a reply's action row regenerate without prop drilling through assistant-ui.
+const CoachCtx = createContext<{ regenerate: () => void; busy: boolean }>({ regenerate: () => {}, busy: false });
+
 export default function CoachScreen() {
-  const messages = useQuery(api.coach.history);
+  const threadId = useCurrentThread();
+  const messages = useQuery(api.coach.history, threadId ? { threadId } : "skip");
+  const createThread = useMutation(api.coach.createThread);
   const send = useAction(api.coach.send);
+  const regen = useAction(api.coach.regenerate);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,23 +95,43 @@ export default function CoachScreen() {
       .trim();
     if (!text) return;
     setBusy(true); setError(null);
-    try { await send({ content: text, dayKey: todayKey() }); }
+    try {
+      // A new chat becomes a real thread first, so the message shows up immediately.
+      let id = threadId;
+      if (!id) {
+        id = await createThread({});
+        setCurrentThread(id);
+      }
+      await send({ content: text, dayKey: todayKey(), threadId: id });
+    }
     catch { setError("Couldn't reach the coach. Try again."); }
     finally { setBusy(false); }
-  }, [send]);
+  }, [send, createThread, threadId]);
+
+  const regenerate = useCallback(async () => {
+    if (!threadId || busy) return;
+    setBusy(true); setError(null);
+    try { await regen({ threadId, dayKey: todayKey() }); }
+    catch { setError("Couldn't regenerate. Try again."); }
+    finally { setBusy(false); }
+  }, [regen, threadId, busy]);
 
   const runtime = useExternalStoreRuntime({
-    messages: messages ?? [],
-    isLoading: messages === undefined,
+    messages: threadId ? messages ?? [] : [],
+    isLoading: threadId !== null && messages === undefined,
     isRunning: busy,
     convertMessage,
     onNew,
   });
 
+  const ctx = useMemo(() => ({ regenerate: () => void regenerate(), busy }), [regenerate, busy]);
+
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <CoachThread error={error} />
-    </AssistantRuntimeProvider>
+    <CoachCtx.Provider value={ctx}>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <CoachThread error={error} />
+      </AssistantRuntimeProvider>
+    </CoachCtx.Provider>
   );
 }
 
@@ -152,7 +184,7 @@ function CoachThread({ error }: { error: string | null }) {
               }
             />
 
-            <ScreenFades topFade={CHROME_ROW + space[40]} bottom={false} />
+            <ScreenFades topFade={CHROME_ROW + space[56] + space[16]} bottom={false} />
 
             <CoachChrome hasMessages={hasMessages} />
 
@@ -233,6 +265,10 @@ function CoachThread({ error }: { error: string | null }) {
 
 function CoachChrome({ hasMessages }: { hasMessages: boolean }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const threadId = useCurrentThread();
+  const thread = useQuery(api.coach.thread, threadId ? { threadId } : "skip");
+  const title = threadId ? thread?.title ?? "" : "Coach";
   return (
     <View
       pointerEvents="box-none"
@@ -252,26 +288,51 @@ function CoachChrome({ hasMessages }: { hasMessages: boolean }) {
       <IconButton
         name="line.3.horizontal"
         variant="glass"
-        accessibilityLabel="Menu"
+        accessibilityLabel="Chats"
+        onPress={() => router.push("/chats")}
       />
       <View
         pointerEvents="none"
         style={{
           position: "absolute",
-          left: 0,
-          right: 0,
+          left: 110,
+          right: 110,
           top: insets.top,
           height: CHROME_ROW,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <T variant="headline">Coach</T>
+        <T variant="headline" numberOfLines={1}>{title}</T>
       </View>
       <GlassPill>
-        <NewChatButton hasMessages={hasMessages} />
+        <IconButton
+          name="square.and.pencil"
+          variant="plain"
+          accessibilityLabel="New chat"
+          onPress={() => setCurrentThread(null)}
+          disabled={!hasMessages && !threadId}
+        />
+        {thread ? <ChatMenu thread={thread} /> : null}
       </GlassPill>
     </View>
+  );
+}
+
+/** ChatGPT's in-chat "..." menu: share, rename, pin, archive, delete. */
+function ChatMenu({ thread }: { thread: Doc<"chatThreads"> }) {
+  const t = useTheme();
+  const actions = useChatActions(thread._id);
+  return (
+    <Host colorScheme={t.scheme} style={{ width: 40, height: 40 }}>
+      <Menu label={<SwiftImage systemName="ellipsis" size={18} color={t.label} modifiers={[frame({ width: 40, height: 40 })]} />}>
+        <Button label="Share" systemImage="square.and.arrow.up" onPress={() => void actions.share(thread)} />
+        <Button label="Rename" systemImage="pencil" onPress={() => actions.rename(thread)} />
+        <Button label={thread.pinned ? "Unpin" : "Pin"} systemImage={thread.pinned ? "pin.slash" : "pin"} onPress={() => actions.togglePin(thread)} />
+        <Button label="Archive" systemImage="archivebox" onPress={() => actions.archive(thread)} />
+        <Button label="Delete" systemImage="trash" role="destructive" onPress={() => actions.remove(thread)} />
+      </Menu>
+    </Host>
   );
 }
 
@@ -298,55 +359,6 @@ function SuggestionRow() {
         </ThreadPrimitive.Suggestion>
       ))}
     </ScrollView>
-  );
-}
-
-function NewChatButton({ hasMessages }: { hasMessages: boolean }) {
-  const t = useTheme();
-  const clearChat = useMutation(api.coach.clearChat);
-  const [open, setOpen] = useState(false);
-
-  const button = (
-    <IconButton
-      name="square.and.pencil"
-      variant="plain"
-      color={t.label}
-      accessibilityLabel="New chat"
-      onPress={hasMessages ? () => setOpen(true) : undefined}
-    />
-  );
-
-  if (!hasMessages) return button;
-
-  return (
-    <Host matchContents colorScheme={t.scheme} style={{ width: 40, height: 40 }}>
-      <ConfirmationDialog
-        title="Clear chat?"
-        isPresented={open}
-        onIsPresentedChange={setOpen}
-        titleVisibility="visible"
-      >
-        <ConfirmationDialog.Trigger>
-          <RNHostView matchContents>
-            {button}
-          </RNHostView>
-        </ConfirmationDialog.Trigger>
-        <ConfirmationDialog.Actions>
-          <Button
-            role="destructive"
-            label="Clear chat"
-            onPress={() => {
-              warning();
-              void clearChat();
-            }}
-          />
-          <Button role="cancel" label="Cancel" />
-        </ConfirmationDialog.Actions>
-        <ConfirmationDialog.Message>
-          <SwiftText>Every message in this conversation will be deleted.</SwiftText>
-        </ConfirmationDialog.Message>
-      </ConfirmationDialog>
-    </Host>
   );
 }
 
@@ -467,9 +479,26 @@ function AssistantMessage() {
 
 function AssistantActions() {
   const t = useTheme();
+  const { regenerate, busy } = useContext(CoachCtx);
+  const text = useAuiState((st) =>
+    st.message.content.map((p) => (p.type === "text" ? p.text : "")).join("\n"),
+  );
+  const isLast = useAuiState((st) => st.message.isLast);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
+  const [copied, setCopied] = useState(false);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: space[12] }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space[4], marginLeft: -space[8] }}>
+      <ActionIcon
+        name={copied ? "checkmark" : "doc.on.doc"}
+        label="Copy"
+        color={t.secondaryLabel}
+        onPress={() => {
+          void Clipboard.setStringAsync(text);
+          success();
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      />
       <ActionIcon
         name={vote === "up" ? "hand.thumbsup.fill" : "hand.thumbsup"}
         label="Good response"
@@ -482,6 +511,15 @@ function AssistantActions() {
         color={t.secondaryLabel}
         onPress={() => setVote((v) => (v === "down" ? null : "down"))}
       />
+      <ActionIcon
+        name="square.and.arrow.up"
+        label="Share"
+        color={t.secondaryLabel}
+        onPress={() => void Share.share({ message: text })}
+      />
+      {isLast && !busy ? (
+        <ActionIcon name="arrow.clockwise" label="Regenerate" color={t.secondaryLabel} onPress={regenerate} />
+      ) : null}
     </View>
   );
 }

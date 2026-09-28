@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -16,7 +16,9 @@ import {
 import { tap, warning } from "@/lib/haptics";
 import { accentFromSetting, useTheme, type AppearancePref } from "@/lib/theme";
 import { Host } from "@expo/ui";
-import { Picker, Text as SwiftText } from "@expo/ui/swift-ui";
+import { Button, ContextMenu, Picker, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
+import { useChatActions } from "@/components/coach/chat-actions";
+import type { Doc } from "../../../convex/_generated/dataModel";
 import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
 
 // Same preset accents as the web app; the oklch strings are what's stored
@@ -176,6 +178,10 @@ export default function SettingsScreen() {
   const settings = useQuery(api.settings.getAll);
   const setSetting = useMutation(api.settings.set);
   const [accentOpen, setAccentOpen] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const archived = useQuery(api.coach.threads, { archived: true });
+  const deleteArchived = useMutation(api.coach.deleteArchived);
+  const chatActions = useChatActions(null);
   // Opened without a back stack (deep link, reload), fall back to Train instead of erroring.
   const dismiss = () => (router.canGoBack() ? router.back() : router.replace("/"));
 
@@ -363,6 +369,15 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
+        <Section header={sectionHeader("Coach")}>
+          <Row
+            title="Archived chats"
+            leading={<Leading name="archivebox" />}
+            value={archived && archived.length > 0 ? String(archived.length) : undefined}
+            onPress={() => setArchivedOpen(true)}
+          />
+        </Section>
+
         <Section>
           <Pressable
             accessibilityRole="button"
@@ -389,6 +404,36 @@ export default function SettingsScreen() {
           </Pressable>
         </Section>
       </ScrollView>
+
+      <Sheet
+        isPresented={archivedOpen}
+        onDismiss={() => setArchivedOpen(false)}
+        title="Archived chats"
+        subtitle={archived && archived.length > 0 ? "Long-press a chat to unarchive or delete it." : undefined}
+      >
+        {!archived || archived.length === 0 ? (
+          <T variant="subhead">No archived chats. Archived conversations will be available here.</T>
+        ) : (
+          <View style={{ gap: space[4] }}>
+            {archived.map((th) => (
+              <ArchivedRow key={th._id} thread={th} actions={chatActions} />
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                warning();
+                Alert.alert("Delete all archived chats?", "This can't be undone.", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Delete all", style: "destructive", onPress: () => void deleteArchived({}) },
+                ]);
+              }}
+              style={({ pressed }) => ({ marginTop: space[12], paddingVertical: space[12], opacity: pressed ? 0.6 : 1 })}
+            >
+              <T variant="body" color={t.destructive}>Delete all archived chats</T>
+            </Pressable>
+          </View>
+        )}
+      </Sheet>
 
       <Sheet
         isPresented={accentOpen}
@@ -442,5 +487,26 @@ export default function SettingsScreen() {
         </View>
       </Sheet>
     </Screen>
+  );
+}
+
+function ArchivedRow({ thread, actions }: { thread: Doc<"chatThreads">; actions: ReturnType<typeof useChatActions> }) {
+  const t = useTheme();
+  return (
+    <Host matchContents={{ vertical: true }} colorScheme={t.scheme}>
+      <ContextMenu>
+        <ContextMenu.Trigger>
+          <RNHostView matchContents>
+            <View style={{ minHeight: 44, justifyContent: "center" }}>
+              <T variant="body" numberOfLines={1}>{thread.title}</T>
+            </View>
+          </RNHostView>
+        </ContextMenu.Trigger>
+        <ContextMenu.Items>
+          <Button label="Unarchive" systemImage="tray.and.arrow.up" onPress={() => actions.unarchive(thread)} />
+          <Button label="Delete" systemImage="trash" role="destructive" onPress={() => actions.remove(thread)} />
+        </ContextMenu.Items>
+      </ContextMenu>
+    </Host>
   );
 }

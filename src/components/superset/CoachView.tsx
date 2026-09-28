@@ -58,7 +58,7 @@ function useLiveSuggestions(): string[] {
 }
 
 export default function CoachView() {
-  const messages = useQuery(api.coach.history);
+  const messages = useQuery(api.coach.history, {});
   const send = useAction(api.coach.send);
   const clearChat = useMutation(api.coach.clearChat);
   const suggestions = useLiveSuggestions();
@@ -103,7 +103,7 @@ export default function CoachView() {
       <div className="flex items-center justify-between px-(--page-padding) pt-1">
         <h2 className="display text-2xl">COACH</h2>
         {messages && messages.length > 0 && (
-          <button onClick={() => clearChat()} className="text-muted-foreground p-1" aria-label="Clear chat"><Trash2 size={16} /></button>
+          <button onClick={() => clearChat({})} className="text-muted-foreground p-1" aria-label="Clear chat"><Trash2 size={16} /></button>
         )}
       </div>
 
