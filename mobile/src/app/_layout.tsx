@@ -60,6 +60,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="signin" />
+            <Stack.Screen name="skin" />
           </Stack>
         </View>
       </ThemeProvider>
