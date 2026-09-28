@@ -1,23 +1,27 @@
 import { useMemo, useState, type ReactElement } from "react";
 import {
-  Alert, Image, Pressable, ScrollView, Text, View, useWindowDimensions,
+  Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions,
   type StyleProp, type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as ImagePicker from "expo-image-picker";
-import * as Haptics from "expo-haptics";
 import { BottomSheet, Host } from "@expo/ui";
 import { Button, ContextMenu, ProgressView, RNHostView } from "@expo/ui/swift-ui";
 import { frame, presentationBackground, progressViewStyle, tint } from "@expo/ui/swift-ui/modifiers";
-import { Camera, ChevronDown, ChevronUp, Droplet, Flame, Minus, Plus, Scale } from "lucide-react-native";
+import { SymbolView } from "expo-symbols";
+import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Body, Card, Display, Eyebrow, Field, Num, Pill } from "@/components/ui/kit";
+import {
+  Card, Display, Eyebrow, Field, IconButton, Num, Pill, Row, ScreenTitle, Section,
+  Skeleton, T, gap, motion, radius, space, squircle,
+} from "@/components/ui/kit";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { WeekDots } from "@/components/week-dots";
 import { SparkLine } from "@/components/spark-line";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { success, tap } from "@/lib/haptics";
+import { elevation, palette, type, useTheme } from "@/lib/theme";
 
 const DAY = 24 * 60 * 60 * 1000;
 const dayKey = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -27,12 +31,15 @@ const dayLabel = (key: number, todayStart: number) => {
   if (key >= todayStart - DAY) return "Yesterday";
   return new Date(key).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 };
+const todayDateLabel = () =>
+  new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
 export default function FoodScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const pad = useScreenInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const reduced = useReducedMotion();
   const logs = useQuery(api.food.listFoodLogs);
   const settings = useQuery(api.settings.getAll);
   const del = useMutation(api.food.deleteFoodLog);
@@ -59,7 +66,8 @@ export default function FoodScreen() {
 
   const proteinGoal = Number(settings?.proteinGoal) || 0;
   const calorieGoal = Number(settings?.calorieGoal) || 0;
-  const cardWidth = (screenWidth - 32 - 8) / 2;
+  const cardWidth = (screenWidth - gap.screen * 2 - gap.row) / 2;
+  const loading = logs === undefined;
 
   const confirmDelete = (id: Id<"foodLogs">) =>
     Alert.alert("Delete this entry?", "Its calories and protein come off today's totals.", [
@@ -69,40 +77,68 @@ export default function FoodScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingTop: pad.top, paddingBottom: pad.bottom }}>
-        <Display size={26}>Food</Display>
+      <ScrollView contentContainerStyle={{
+        paddingHorizontal: gap.screen,
+        paddingTop: pad.top,
+        paddingBottom: pad.bottom,
+        gap: gap.section,
+      }}>
+        <View style={{ gap: gap.group }}>
+          <ScreenTitle title="Food" subtitle={todayDateLabel()} />
 
-        <NetCaloriesCard calorieGoal={calorieGoal} todayStart={todayStart} />
+          {loading ? (
+            <View style={{ gap: gap.row }}>
+              <Skeleton width={160} height={52} />
+              <Skeleton height={type.footnote.lineHeight} />
+              <Skeleton height={8} />
+            </View>
+          ) : (
+            <CaloriesHero calorieGoal={calorieGoal} todayStart={todayStart} protein={today.pro} proteinGoal={proteinGoal} />
+          )}
 
-        <Card>
-          <GoalBar label="Protein today" value={today.pro} goal={proteinGoal} unit="g" moreIsGood />
-          <GoalBar label="Calories today" value={today.cal} goal={calorieGoal} unit="cal" />
-        </Card>
-
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <ProteinStreakCard todayStart={todayStart} />
-          <WaterCard />
+          <View style={{ flexDirection: "row", gap: gap.row }}>
+            {loading ? (
+              <>
+                <View style={{ flex: 1 }}><Skeleton height={120} /></View>
+                <View style={{ flex: 1 }}><Skeleton height={120} /></View>
+              </>
+            ) : (
+              <>
+                <ProteinStreakCard todayStart={todayStart} />
+                <WaterCard />
+              </>
+            )}
+          </View>
         </View>
 
-        <WeightCard />
+        <WeightRow />
 
         {days.map((day) => day.key >= todayStart ? (
-          <View key={day.key} style={{ gap: 8 }}>
+          <View key={day.key} style={{ gap: gap.row }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
               <Eyebrow>{day.label}</Eyebrow>
-              <Num size={11} color={t.mutedFg}>{day.cal} cal · {round1(day.pro)}g</Num>
+              <Num size={type.caption.fontSize} color={t.secondaryLabel}>{day.cal} cal · {round1(day.pro)}g</Num>
             </View>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: gap.row }}>
               {day.items.map((l) => (
-                <EntryMenu key={l._id} onDelete={() => confirmDelete(l._id)} style={{ width: cardWidth }}>
-                  <View style={{ width: cardWidth, backgroundColor: t.card, borderRadius: 18, borderCurve: "continuous", overflow: "hidden", borderWidth: 1, borderColor: t.hairline }}>
-                    {l.itemUrl && <Image source={{ uri: l.itemUrl }} style={{ width: "100%", aspectRatio: 1 }} />}
-                    <View style={{ padding: 10, gap: 2 }}>
-                      <Body size={13} numberOfLines={1} style={{ fontFamily: fonts.sansMedium }}>{l.name || "Logged"}</Body>
-                      <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+                <Animated.View
+                  key={l._id}
+                  layout={reduced ? undefined : LinearTransition.duration(motion.duration.base)}
+                  style={{ width: cardWidth }}
+                >
+                  <EntryMenu onDelete={() => confirmDelete(l._id)} style={{ width: cardWidth }}>
+                    <View style={{
+                      width: cardWidth, backgroundColor: t.elevated, borderRadius: radius.card,
+                      ...squircle, overflow: "hidden",
+                    }}>
+                      {l.itemUrl && <Image source={{ uri: l.itemUrl }} style={{ width: "100%", aspectRatio: 1 }} />}
+                      <View style={{ padding: space[12], gap: space[4] }}>
+                        <T variant="subhead" color={t.label} numberOfLines={1}>{l.name || "Logged"}</T>
+                        <Num size={type.caption.fontSize} color={t.secondaryLabel}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+                      </View>
                     </View>
-                  </View>
-                </EntryMenu>
+                  </EntryMenu>
+                </Animated.View>
               ))}
             </View>
           </View>
@@ -111,23 +147,27 @@ export default function FoodScreen() {
             onToggle={() => setOpenDay(openDay === day.key ? null : day.key)}
             onDelete={confirmDelete} />
         ))}
-        {days.length > 0 && <Body size={11} color={t.mutedFg}>Press and hold an entry, then tap Delete.</Body>}
+        {days.length > 0 && (
+          <T variant="caption">Press and hold an entry, then tap Delete.</T>
+        )}
       </ScrollView>
       <ScreenFades />
 
       {/* Camera FAB, same learned spot as Train's +. After the fades so the blur does not cover it. */}
       <Pressable
-        onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setAddOpen(true); }}
+        onPress={() => { tap(); setAddOpen(true); }}
+        accessibilityRole="button"
         accessibilityLabel="Log food"
         style={({ pressed }) => ({
           position: "absolute", bottom: insets.bottom + 28, alignSelf: "center",
-          width: 58, height: 58, borderRadius: 29, backgroundColor: t.accent,
+          width: 56, height: 56, borderRadius: 28, backgroundColor: t.accent,
           alignItems: "center", justifyContent: "center",
-          shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
-          transform: [{ scale: pressed ? 0.94 : 1 }],
+          boxShadow: elevation.overlay,
+          opacity: pressed ? 0.86 : 1,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
         })}
       >
-        <Camera size={26} color={t.accentFg} />
+        <SymbolView name="camera.fill" size={22} tintColor={t.accentFg} weight="medium" resizeMode="scaleAspectFit" />
       </Pressable>
 
       <AddFoodSheet open={addOpen} onClose={() => setAddOpen(false)} />
@@ -155,34 +195,9 @@ function EntryMenu({ onDelete, children, style }: {
   );
 }
 
-function GoalBar({ label, value, goal, unit, moreIsGood }: {
-  label: string; value: number; goal: number; unit: string; moreIsGood?: boolean;
+function CaloriesHero({ calorieGoal, todayStart, protein, proteinGoal }: {
+  calorieGoal: number; todayStart: number; protein: number; proteinGoal: number;
 }) {
-  const t = useTheme();
-  const ratio = goal > 0 ? Math.min(1, value / goal) : 0;
-  const met = goal > 0 && value >= goal;
-  const fill = met ? (moreIsGood ? t.success : t.destructive) : t.accent;
-  return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Eyebrow style={{ fontSize: 10 }}>{label}</Eyebrow>
-        <Num size={12}>{value}{goal > 0 ? ` / ${goal}` : ""} {unit}</Num>
-      </View>
-      <Host colorScheme="dark" style={{ height: 10, alignSelf: "stretch" }}>
-        <ProgressView
-          value={ratio}
-          modifiers={[
-            progressViewStyle("linear"),
-            tint(fill),
-            frame({ maxWidth: Infinity, height: 8 }),
-          ]}
-        />
-      </Host>
-    </View>
-  );
-}
-
-function NetCaloriesCard({ calorieGoal, todayStart }: { calorieGoal: number; todayStart: number }) {
   const t = useTheme();
   const food = useQuery(api.food.listFoodLogs);
   const cardio = useQuery(api.cardio.recentCardio);
@@ -191,36 +206,51 @@ function NetCaloriesCard({ calorieGoal, todayStart }: { calorieGoal: number; tod
   const outCals = Math.round((cardio ?? []).reduce((s, r) => (r.loggedAt >= todayStart ? s + (r.calories ?? 0) : s), 0));
   const net = inCals - outCals;
   const remaining = calorieGoal ? calorieGoal - net : 0;
+  const over = calorieGoal > 0 && remaining < 0;
+  const hero = calorieGoal ? Math.abs(remaining) : net;
+  const unit = calorieGoal ? (over ? "kcal over today" : "kcal left today") : "net kcal";
+  const mathLine = calorieGoal
+    ? `${calorieGoal} goal  ·  ${inCals} food  ·  ${outCals} burn`
+    : `${inCals} food  ·  ${outCals} burn`;
+  const proRatio = proteinGoal > 0 ? Math.min(1, protein / proteinGoal) : 0;
+  const proMet = proteinGoal > 0 && protein >= proteinGoal;
 
   return (
-    <Card>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Eyebrow>Calories</Eyebrow>
-        <Flame size={15} color={t.mutedFg} />
+    <View style={{ gap: gap.row }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[8] }}>
+        <Display
+          size={52}
+          color={over ? t.destructive : t.accent}
+          style={{ lineHeight: 56 }} // optical: Anton caps clip at the default 1.18 ratio
+        >
+          {hero}
+        </Display>
+        <T variant="subhead" style={{ marginBottom: 6 }}>{unit}</T> {/* optical baseline with Display 52 */}
       </View>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-        <Text style={{
-          fontFamily: fonts.display, fontSize: 52, lineHeight: 62, fontVariant: ["tabular-nums"],
-          color: calorieGoal ? (remaining >= 0 ? t.accent : t.destructive) : t.accent,
-        }}>
-          {calorieGoal ? Math.abs(remaining) : net}
-        </Text>
-        <Body size={13} color={t.mutedFg} style={{ marginBottom: 6 }}>
-          {calorieGoal ? (remaining >= 0 ? "kcal left today" : "kcal over today") : "net kcal"}
-        </Body>
+      <T variant="footnote">{mathLine}</T>
+      <View style={{ gap: space[8] }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+          <T variant="footnote">Protein</T>
+          <Num size={type.footnote.fontSize}>
+            {round1(protein)}{proteinGoal > 0 ? ` / ${proteinGoal}` : ""} g
+          </Num>
+        </View>
+        {proteinGoal > 0 ? (
+          <Host colorScheme="dark" style={{ height: 8, alignSelf: "stretch" }}>
+            <ProgressView
+              value={proRatio}
+              modifiers={[
+                progressViewStyle("linear"),
+                tint(proMet ? t.success : t.accent),
+                frame({ maxWidth: Infinity, height: 6 }),
+              ]}
+            />
+          </Host>
+        ) : (
+          <T variant="caption">Set a protein goal in Settings.</T>
+        )}
       </View>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        {(calorieGoal
-          ? [["Goal", calorieGoal], ["− Food", inCals], ["+ Burn", outCals]]
-          : [["In", inCals], ["Out", outCals]]
-        ).map(([label, v]) => (
-          <View key={String(label)} style={{ flex: 1, backgroundColor: t.muted, borderRadius: 12, padding: 10, gap: 2 }}>
-            <Eyebrow style={{ fontSize: 10 }}>{label}</Eyebrow>
-            <Num size={16}>{v}</Num>
-          </View>
-        ))}
-      </View>
-    </Card>
+    </View>
   );
 }
 
@@ -228,16 +258,6 @@ function ProteinStreakCard({ todayStart }: { todayStart: number }) {
   const t = useTheme();
   const logs = useQuery(api.food.listFoodLogs);
   const settings = useQuery(api.settings.getAll);
-  const days = useMemo(() => {
-    const out: { key: number; label: string; cal: number; pro: number; items: NonNullable<typeof logs> }[] = [];
-    for (const l of logs ?? []) {
-      const key = dayKey(l.loggedAt);
-      let day = out[out.length - 1];
-      if (!day || day.key !== key) { day = { key, label: dayLabel(key, todayStart), cal: 0, pro: 0, items: [] }; out.push(day); }
-      day.cal += l.calories ?? 0; day.pro += l.protein ?? 0; day.items.push(l);
-    }
-    return out;
-  }, [logs, todayStart]);
 
   const proteinGoal = Number(settings?.proteinGoal) || 0;
 
@@ -261,22 +281,25 @@ function ProteinStreakCard({ todayStart }: { todayStart: number }) {
   }, [byDay, proteinGoal, todayStart]);
 
   return (
-    <Card style={{ flex: 1, padding: 12 }}>
+    <Card style={{ flex: 1, padding: space[12], gap: space[8] }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Eyebrow style={{ fontSize: 10 }}>Protein streak</Eyebrow>
-        <Flame size={14} color={streak > 0 ? t.success : t.mutedFg} />
+        <Eyebrow>Streak</Eyebrow>
+        <SymbolView
+          name="flame.fill"
+          size={14}
+          tintColor={streak > 0 ? t.success : t.tertiaryLabel}
+          weight="medium"
+        />
       </View>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: 40, lineHeight: 48, color: streak > 0 ? t.success : t.fg, fontVariant: ["tabular-nums"] }}>
-          {streak}
-        </Text>
-        <Body size={12} color={t.mutedFg} style={{ marginBottom: 5 }}>{streak === 1 ? "day" : "days"}</Body>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[4] }}>
+        <Num size={28} weight="semibold" color={streak > 0 ? t.success : t.label}>{streak}</Num>
+        <T variant="footnote" style={{ marginBottom: 3 }}>{streak === 1 ? "day" : "days"}</T> {/* optical baseline with Num 28 */}
       </View>
       {proteinGoal > 0 ? (
         <WeekDots size={17}
           hits={Array.from({ length: 7 }, (_, i) => (byDay.get(todayStart - (6 - i) * DAY) ?? 0) >= proteinGoal)} />
       ) : (
-        <Body size={11} color={t.mutedFg}>Set a protein goal in Settings.</Body>
+        <T variant="caption">Set a protein goal in Settings.</T>
       )}
     </Card>
   );
@@ -292,77 +315,117 @@ function WaterCard() {
 
   const goal = Number(settings?.waterGoal) || 8;
   const count = cups ?? 0;
+  const met = count >= goal;
 
   return (
-    <Card style={{ flex: 1, padding: 12 }}>
+    <Card style={{ flex: 1, padding: space[12], gap: space[8] }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Eyebrow style={{ fontSize: 10 }}>Water</Eyebrow>
-        <Droplet size={14} color={t.mutedFg} />
+        <Eyebrow>Water</Eyebrow>
+        <SymbolView name="drop.fill" size={14} tintColor={met ? t.success : t.tertiaryLabel} weight="medium" />
       </View>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: 40, lineHeight: 48, color: count >= goal ? t.success : t.fg, fontVariant: ["tabular-nums"] }}>
-          {count}
-        </Text>
-        <Body size={12} color={t.mutedFg} style={{ marginBottom: 5 }}>/ {goal} cups</Body>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[4] }}>
+        <Num size={28} weight="semibold" color={met ? t.success : t.label}>{count}</Num>
+        <T variant="footnote" style={{ marginBottom: 3 }}>/ {goal}</T> {/* optical baseline with Num 28 */}
       </View>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Pressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void removeCup({ start }); }}
-          disabled={count === 0} accessibilityLabel="Remove a cup"
-          style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: t.border, alignItems: "center", justifyContent: "center", opacity: count === 0 ? 0.4 : 1 }}>
-          <Minus size={15} color={t.fg} />
-        </Pressable>
-        <Pressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void addCup(); }}
+      <View style={{ flexDirection: "row", gap: space[8] }}>
+        <IconButton
+          name="minus"
+          accessibilityLabel="Remove a cup"
+          disabled={count === 0}
+          onPress={() => { void removeCup({ start }); }}
+          style={{ backgroundColor: t.elevated2 }}
+        />
+        <IconButton
+          name="plus"
           accessibilityLabel="Add a cup"
-          style={{ flex: 1, height: 38, borderRadius: 19, backgroundColor: t.fg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 4 }}>
-          <Plus size={15} color="#000" />
-          <Text style={{ fontFamily: fonts.sansSemiBold, fontSize: 12, color: "#000" }}>Add</Text>
-        </Pressable>
+          onPress={() => { void addCup(); }}
+          style={{ backgroundColor: t.elevated2 }}
+        />
       </View>
     </Card>
   );
 }
 
-function WeightCard() {
+function WeightRow() {
   const t = useTheme();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const weights = useQuery(api.weight.listWeights);
   const settings = useQuery(api.settings.getAll);
   const logWeight = useMutation(api.weight.logWeight);
+  const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
 
   const latest = weights?.[0];
+  const prev = weights?.[1];
   const goal = Number(settings?.weightGoal) || 0;
+  const sheetWidth = width - gap.screen * 2;
+
+  const delta = latest && prev ? round1(latest.weight - prev.weight) : null;
+  const trend =
+    latest == null ? "Tap to log"
+      : delta == null ? (goal ? `Goal ${goal} lb` : "Latest log")
+        : delta === 0 ? "No change from last"
+          : delta > 0 ? `Up ${delta} lb from last`
+            : `Down ${Math.abs(delta)} lb from last`;
+  const subtitle = latest && goal && delta != null
+    ? `Goal ${goal} lb · ${trend}`
+    : trend;
 
   const submit = async () => {
     const n = parseFloat(value);
     if (!Number.isFinite(n) || n <= 0) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await logWeight({ weight: n });
+    success();
     setValue("");
+    setOpen(false);
   };
 
   return (
-    <Card>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Eyebrow>Body weight</Eyebrow>
-        <Scale size={15} color={t.mutedFg} />
-      </View>
-      {latest && (
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          <Text style={{ fontFamily: fonts.display, fontSize: 44, lineHeight: 53, color: t.fg, fontVariant: ["tabular-nums"] }}>
-            {latest.weight.toFixed(1)}
-          </Text>
-          <Body size={13} color={t.mutedFg} style={{ marginBottom: 5 }}>lb{goal ? ` · goal ${goal}` : ""}</Body>
-        </View>
-      )}
-      {weights && weights.length >= 2 && (
-        <SparkLine values={[...weights].reverse().map((w) => w.weight)} width={width - 64} height={48} />
-      )}
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Field mono value={value} onChangeText={setValue} placeholder="Weight (lb)" keyboardType="decimal-pad" style={{ flex: 1 }} />
-        <Pill label="Log" onPress={() => void submit()} disabled={!value.trim()} />
-      </View>
-    </Card>
+    <>
+      <Section>
+        <Row
+          title="Body weight"
+          subtitle={subtitle}
+          value={latest ? `${latest.weight.toFixed(1)} lb` : "Log"}
+          leading={<SymbolView name="scalemass" size={22} tintColor={t.secondaryLabel} />}
+          onPress={() => setOpen(true)}
+        />
+      </Section>
+
+      <BottomSheet
+        isPresented={open}
+        onDismiss={() => setOpen(false)}
+        showDragIndicator
+        modifiers={[presentationBackground(palette.bg)]}
+      >
+        <RNHostView matchContents>
+          <View style={{
+            width: sheetWidth,
+            gap: gap.group,
+            paddingTop: space[16],
+            paddingBottom: insets.bottom + space[12],
+          }}>
+            <T variant="title2" color={t.label}>Log weight</T>
+            {latest && (
+              <T variant="footnote">
+                Latest {latest.weight.toFixed(1)} lb{goal ? ` · goal ${goal}` : ""}
+              </T>
+            )}
+            {weights && weights.length >= 2 && (
+              <SparkLine values={[...weights].reverse().map((w) => w.weight)} width={sheetWidth} height={space[40]} />
+            )}
+            <Field
+              value={value}
+              onChangeText={setValue}
+              placeholder="Weight (lb)"
+              keyboardType="decimal-pad"
+            />
+            <Pill label="Save" kind="accent" onPress={() => void submit()} disabled={!value.trim()} />
+          </View>
+        </RNHostView>
+      </BottomSheet>
+    </>
   );
 }
 
@@ -413,7 +476,7 @@ function AddFoodSheet({ open, onClose }: { open: boolean; onClose: () => void })
         protein: a.protein || undefined,
         summary: a.summary || undefined,
       });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      success();
       setPhoto(null); setName(""); onClose();
     } catch {
       setError("Couldn't read that photo. Try again, or type a name and save without analysis.");
@@ -424,13 +487,14 @@ function AddFoodSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
   // The sheet pads 16 on each side. Give the hosted form a real size so the
   // photo and fields lay out inside the 92% detent instead of collapsing.
-  const sheetWidth = width - 32;
+  const sheetWidth = width - gap.screen * 2;
   const sheetHeight = Math.max(360, Math.round(height * 0.92) - 36);
 
   return (
     <BottomSheet
       isPresented={open}
       onDismiss={onClose}
+      showDragIndicator
       snapPoints={[{ fraction: 0.92 }]}
       modifiers={[presentationBackground(palette.bg)]}
     >
@@ -438,17 +502,35 @@ function AddFoodSheet({ open, onClose }: { open: boolean; onClose: () => void })
         <ScrollView
           keyboardShouldPersistTaps="handled"
           style={{ width: sheetWidth, height: sheetHeight, backgroundColor: t.bg }}
-          contentContainerStyle={{ gap: 12, paddingBottom: insets.bottom + 12 }}
+          contentContainerStyle={{
+            gap: gap.group,
+            paddingTop: space[20],
+            paddingBottom: insets.bottom + space[12],
+          }}
         >
-          <Display size={24}>Log food</Display>
+          <T variant="title2" color={t.label}>Log food</T>
 
-          <Pressable onPress={() => void pick(true)}
-            style={{ aspectRatio: 1.4, borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderStyle: photo ? "solid" : "dashed", borderColor: t.border, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: t.card }}>
+          <Pressable
+            onPress={() => { tap(); void pick(true); }}
+            accessibilityRole="button"
+            accessibilityLabel="Snap the meal"
+            style={({ pressed }) => ({
+              aspectRatio: 1.4,
+              borderRadius: radius.card,
+              ...squircle,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: t.elevated,
+              opacity: pressed ? 0.86 : 1,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
+          >
             {photo
               ? <Image source={{ uri: photo.uri }} style={{ width: "100%", height: "100%" }} />
-              : <View style={{ alignItems: "center", gap: 8 }}>
-                  <Camera size={26} color={t.mutedFg} />
-                  <Body size={12} color={t.mutedFg}>Snap the meal</Body>
+              : <View style={{ alignItems: "center", gap: space[8] }}>
+                  <SymbolView name="camera.fill" size={26} tintColor={t.secondaryLabel} />
+                  <T variant="footnote">Snap the meal</T>
                 </View>}
           </Pressable>
           <Pill label="Choose from library" kind="outline" onPress={() => void pick(false)} />
@@ -456,10 +538,10 @@ function AddFoodSheet({ open, onClose }: { open: boolean; onClose: () => void })
           <Field value={name} onChangeText={setName} placeholder="Name (optional, AI fills it in)" />
           <Pill label={busy ? (stage || "Saving…") : "Save to today"} kind="accent"
             onPress={() => void submit()} disabled={!photo || busy} />
-          {error && <Body size={12} color={t.destructive}>{error}</Body>}
-          <Body size={11} color={t.mutedFg} style={{ textAlign: "center" }}>
+          {error && <T variant="footnote" color={t.destructive}>{error}</T>}
+          <T variant="caption" style={{ textAlign: "center" }}>
             The coach reads your photo to name it and pull calories + protein.
-          </Body>
+          </T>
           <Pill label="Cancel" kind="outline" onPress={onClose} />
         </ScrollView>
       </RNHostView>
@@ -477,26 +559,44 @@ function PastDayPill({ day, open, onToggle, onDelete }: {
 }) {
   const t = useTheme();
   const { width } = useWindowDimensions();
-  const rowWidth = width - 34;
+  const rowWidth = width - gap.screen * 2;
   return (
-    <View style={{ backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous", borderWidth: 1, borderColor: t.hairline, overflow: "hidden" }}>
-      <Pressable onPress={onToggle} style={({ pressed }) => ({
-        flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 14, opacity: pressed ? 0.7 : 1,
-      })}>
+    <View style={{ backgroundColor: t.elevated, borderRadius: radius.card, ...squircle, overflow: "hidden" }}>
+      <Pressable
+        onPress={() => { tap(); onToggle(); }}
+        accessibilityRole="button"
+        accessibilityLabel={day.label}
+        style={({ pressed }) => ({
+          flexDirection: "row", alignItems: "center", gap: space[12],
+          paddingHorizontal: space[16], paddingVertical: space[12],
+          backgroundColor: pressed ? t.elevated2 : "transparent",
+        })}
+      >
         <View style={{ flex: 1, gap: 2 }}>
-          <Body size={14} style={{ fontFamily: fonts.sansSemiBold }}>{day.label}</Body>
-          <Body size={11} color={t.mutedFg}>{day.items.length} {day.items.length === 1 ? "item" : "items"}</Body>
+          <T variant="headline" color={t.label}>{day.label}</T>
+          <T variant="caption">{day.items.length} {day.items.length === 1 ? "item" : "items"}</T>
         </View>
-        <Num size={12} color={t.mutedFg}>{day.cal} cal · {round1(day.pro)}g</Num>
-        {open ? <ChevronUp size={16} color={t.mutedFg} /> : <ChevronDown size={16} color={t.mutedFg} />}
+        <Num size={type.caption.fontSize} color={t.secondaryLabel}>{day.cal} cal · {round1(day.pro)}g</Num>
+        <SymbolView
+          name={open ? "chevron.up" : "chevron.down"}
+          size={14}
+          tintColor={t.tertiaryLabel}
+          weight="semibold"
+        />
       </Pressable>
       {open && day.items.map((l) => (
-        <EntryMenu key={l._id} onDelete={() => onDelete(l._id)} style={{ width: rowWidth }}>
-          <View style={{ width: rowWidth, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: t.hairline }}>
-            <Body size={13} numberOfLines={1} style={{ flex: 1 }}>{l.name || "Logged"}</Body>
-            <Num size={11} color={t.mutedFg}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
-          </View>
-        </EntryMenu>
+        <View key={l._id}>
+          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.separator, marginLeft: space[16] }} />
+          <EntryMenu onDelete={() => onDelete(l._id)} style={{ width: rowWidth }}>
+            <View style={{
+              width: rowWidth, flexDirection: "row", alignItems: "center", gap: space[12],
+              paddingHorizontal: space[16], paddingVertical: space[12],
+            }}>
+              <T variant="body" color={t.label} numberOfLines={1} style={{ flex: 1 }}>{l.name || "Logged"}</T>
+              <Num size={type.caption.fontSize} color={t.secondaryLabel}>{l.calories ?? 0} cal · {l.protein ?? 0}g</Num>
+            </View>
+          </EntryMenu>
+        </View>
       ))}
     </View>
   );
