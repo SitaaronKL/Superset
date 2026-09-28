@@ -146,9 +146,8 @@ function GoalRow({ label, settingKey, placeholder, current, icon }: {
 }
 
 function SettingsHeader({ onClose }: { onClose: () => void }) {
-  const insets = useSafeAreaInsets();
-  // Form sheet: clear the grabber. Full screen (deep link): clear the status bar.
-  const topPad = insets.top > 0 ? insets.top + space[8] : 28;
+  // Settings is always a form sheet; this clears the drag handle, nothing more.
+  const topPad = space[20];
   return (
     <View style={{ paddingTop: topPad, paddingBottom: space[8] }}>
       <View style={{ height: 44, justifyContent: "center", paddingHorizontal: gap.screen }}>
@@ -213,7 +212,8 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <SettingsHeader onClose={dismiss} />
+      {/* Header lives inside the scroll content: an iOS 26 form sheet shifts its
+          first ScrollView under anything fixed above it, which overlapped the list. */}
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -221,11 +221,14 @@ export default function SettingsScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: gap.screen,
-          paddingTop: space[8],
+          paddingTop: 0,
           paddingBottom: (insets.top > 0 ? insets.bottom : 0) + space[24],
           gap: gap.section,
         }}
       >
+        <View style={{ marginHorizontal: -gap.screen, marginBottom: -gap.section + space[8] }}>
+          <SettingsHeader onClose={dismiss} />
+        </View>
         <Section header={sectionHeader("App")}>
           <Row
             title="Accent"
