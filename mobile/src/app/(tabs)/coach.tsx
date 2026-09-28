@@ -398,14 +398,11 @@ function AssistantMessage() {
   );
 }
 
-// Tiny markdown: paragraphs, numbered/bulleted lists, and **bold**. No extra deps.
-type MdBlock =
-  | { kind: "p"; text: string }
-  | { kind: "ul"; items: string[] }
-  | { kind: "ol"; items: { n: string; text: string }[] };
+// Tiny markdown: paragraphs, nested numbered/bulleted lists, and **bold**. No extra deps.
+type MdItem = { marker: string; text: string; depth: number; ordered: boolean };
+type MdBlock = { kind: "p"; text: string } | { kind: "list"; items: MdItem[] };
 
-const UL_RE = /^\s*[-*]\s+(.*)$/;
-const OL_RE = /^\s*(\d+)\.\s+(.*)$/;
+const LIST_RE = /^(\s*)(?:([-*\u2022])|(\d+)[.)])\s+(.*)$/;
 
 function parseMarkdown(src: string): MdBlock[] {
   const lines = src.replace(/\r\n/g, "\n").split("\n");
@@ -419,20 +416,23 @@ function parseMarkdown(src: string): MdBlock[] {
   };
 
   for (const line of lines) {
-    const ul = line.match(UL_RE);
-    const ol = line.match(OL_RE);
-    if (ul) {
+    const m = line.match(LIST_RE);
+    if (m) {
       flushPara();
+      const indent = (m[1] ?? "").replace(/\t/g, "  ").length;
+      const ordered = m[3] !== undefined;
       const last = blocks[blocks.length - 1];
-      if (last?.kind === "ul") last.items.push(ul[1] ?? "");
-      else blocks.push({ kind: "ul", items: [ul[1] ?? ""] });
-    } else if (ol) {
-      flushPara();
-      const last = blocks[blocks.length - 1];
-      if (last?.kind === "ol") last.items.push({ n: ol[1] ?? "1", text: ol[2] ?? "" });
-      else blocks.push({ kind: "ol", items: [{ n: ol[1] ?? "1", text: ol[2] ?? "" }] });
+      const list = last?.kind === "list" ? last : null;
+      // A bullet directly under a numbered item nests even without indentation.
+      const underNumber = !ordered && list && list.items.some((i) => i.ordered && i.depth === 0);
+      const depth = indent >= 2 || underNumber ? 1 : 0;
+      const item: MdItem = { marker: ordered ? `${m[3]}.` : "\u2022", text: m[4] ?? "", depth, ordered };
+      if (list) list.items.push(item);
+      else blocks.push({ kind: "list", items: [item] });
     } else if (line.trim() === "") {
-      flushPara();
+      // A blank line between list items keeps the list together.
+      const last = blocks[blocks.length - 1];
+      if (last?.kind !== "list") flushPara();
     } else {
       para.push(line);
     }
@@ -464,35 +464,33 @@ function MarkdownText({ text }: { text: string }) {
   const t = useTheme();
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
-    <View style={{ gap: gap.row }}>
+    <View style={{ gap: space[12] }}>
       {blocks.map((b, i) => {
         if (b.kind === "p") return <Inline key={i} text={b.text} color={t.label} />;
-        const items: { marker: string; body: string }[] =
-          b.kind === "ul"
-            ? b.items.map((item) => ({ marker: "•", body: item }))
-            : b.items.map((item) => ({ marker: `${item.n}.`, body: item.text }));
         return (
           <View key={i} style={{ gap: space[4] }}>
-            {items.map((item, j) => (
-              <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start" }}>
-                <Text
-                  style={{
-                    color: t.label,
-                    ...type.body,
-                    minWidth: space[24],
-                    fontFamily: fonts.sans,
-                  }}
-                >
-                  {item.marker}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Inline text={item.body} color={t.label} />
+            {b.items.map((item, j) => {
+              const sub = item.depth > 0;
+              // Breathing room before each new top-level item after the first.
+              const top = !sub && j > 0 ? space[8] : 0;
+              return (
+                <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start", marginLeft: sub ? space[24] : 0, marginTop: top }}>
+                  <Text style={{ color: t.secondaryLabel, ...(sub ? type.subhead : type.body), minWidth: sub ? space[12] : space[20], fontFamily: item.ordered ? fonts.mono : fonts.sans }}>
+                    {item.marker}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    {sub ? <SubInline text={item.text} color={t.secondaryLabel} /> : <Inline text={item.text} color={t.label} />}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         );
       })}
     </View>
   );
+}
+
+function SubInline({ text, color }: { text: string; color: string }) {
+  return <Text selectable style={{ color, ...type.subhead }}>{text.replace(/\*\*/g, "")}</Text>;
 }
