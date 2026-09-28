@@ -75,7 +75,7 @@ const LAYOFF_MS = 21 * 24 * 60 * 60 * 1000; // ~3 weeks
  * - Top of rep range hit with RIR >= 1 → add one increment.
  * - Inside the range → repeat weight, chase one more rep.
  * - Below the floor → hold; two sessions in a row below floor → deload 10%.
- * - Gap > 3 weeks → rebuild from 75–80% of old e1RM.
+ * - Gap > 3 weeks → rebuild from 75-80% of old e1RM.
  */
 export function prescribe(
   cfg: ExerciseConfig,
@@ -93,7 +93,7 @@ export function prescribe(
       targetRepsMax: cfg.repRangeMax,
       warmups: [],
       workingSets: workingSetCount(cfg),
-      rationale: "No history for this exercise, pick a weight you can do for the top of the rep range with 2–3 reps in reserve.",
+      rationale: "No history for this exercise, pick a weight you can do for the top of the rep range with 2-3 reps in reserve.",
       isRebuild: false,
     };
   }
@@ -259,7 +259,7 @@ export function explainNextSet(
 ): string {
   const hasHistory = plan.workingTargets.some((t) => t.weight > 0);
   if (!hasHistory) {
-    return "No history yet, pick a weight you can hit for the top of the range with 2–3 reps in reserve.";
+    return "No history yet, pick a weight you can hit for the top of the range with 2-3 reps in reserve.";
   }
 
   const working = setsSoFarThisSession.filter((s) => !s.isWarmup);
