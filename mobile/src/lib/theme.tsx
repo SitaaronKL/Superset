@@ -6,21 +6,26 @@ import { api } from "../../../convex/_generated/api";
 // the web app's oklch tokens as hex; the accent comes from shared Convex
 // settings (stored as oklch strings) and is mapped here.
 
-export const fonts = {
-  display: "Anton_400Regular",
-  sans: "HankenGrotesk_400Regular",
-  sansMedium: "HankenGrotesk_500Medium",
-  sansSemiBold: "HankenGrotesk_600SemiBold",
-  mono: "IBMPlexMono_400Regular",
-  monoSemiBold: "IBMPlexMono_600SemiBold",
+// SF Pro (the iOS system font) everywhere, like ChatGPT. Weight carries
+// hierarchy; numbers use tabular figures instead of a monospace font.
+// See docs/design/chatgpt/SPEC.md.
+export const sf = {
+  regular: { fontWeight: "400" as const },
+  medium: { fontWeight: "500" as const },
+  semibold: { fontWeight: "600" as const },
+  bold: { fontWeight: "700" as const },
+  tabular: { fontVariant: ["tabular-nums" as const] },
+  tabularSemibold: { fontWeight: "600" as const, fontVariant: ["tabular-nums" as const] },
 };
 
 // Surfaces step clearly in luminance so cards read without borders.
 // Keep legacy keys (card, fg, mutedFg, hairline, border, muted) so existing
 // screens keep compiling while new code uses the semantic names.
 export const palette = {
-  bg: "#070707",
+  bg: "#000000",
   groupedBg: "#0c0c0e",
+  // Bottom sheets: one step above the page so a sheet reads as lifted, below cards so cards inside still read.
+  sheet: "#1c1c1e",
   elevated: "#1c1c1e",
   elevated2: "#2c2c2e",
   separator: "rgba(235,235,245,0.12)",
@@ -87,57 +92,16 @@ export const motion = {
   },
 } as const;
 
-// Apple-HIG sizes, Hanken Grotesk tracking. Anton is title only.
 export const type = {
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    lineHeight: 40,
-    letterSpacing: 0.4,
-    textTransform: "uppercase" as const,
-  },
-  title2: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 22,
-    lineHeight: 28,
-    letterSpacing: -0.26,
-  },
-  headline: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: -0.41,
-  },
-  body: {
-    fontFamily: fonts.sans,
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: -0.43,
-  },
-  callout: {
-    fontFamily: fonts.sans,
-    fontSize: 16,
-    lineHeight: 21,
-    letterSpacing: -0.32,
-  },
-  subhead: {
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    lineHeight: 20,
-    letterSpacing: -0.24,
-  },
-  footnote: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.08,
-  },
-  caption: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0,
-  },
+  // Apple's SF text styles (size, leading, tracking).
+  title: { ...sf.bold, fontSize: 28, lineHeight: 34, letterSpacing: 0.36 },
+  title2: { ...sf.semibold, fontSize: 22, lineHeight: 28, letterSpacing: 0.35 },
+  headline: { ...sf.semibold, fontSize: 17, lineHeight: 22, letterSpacing: -0.43 },
+  body: { ...sf.regular, fontSize: 17, lineHeight: 22, letterSpacing: -0.43 },
+  callout: { ...sf.regular, fontSize: 16, lineHeight: 21, letterSpacing: -0.31 },
+  subhead: { ...sf.regular, fontSize: 15, lineHeight: 20, letterSpacing: -0.23 },
+  footnote: { ...sf.regular, fontSize: 13, lineHeight: 18, letterSpacing: -0.08 },
+  caption: { ...sf.regular, fontSize: 12, lineHeight: 16, letterSpacing: 0 },
 } as const;
 
 export type TypeVariant = keyof typeof type;

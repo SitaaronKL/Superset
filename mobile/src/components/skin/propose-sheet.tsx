@@ -12,7 +12,7 @@ import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Body, Display, Eyebrow, Field, Pill } from "@/components/ui/kit";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { sf, palette, useTheme } from "@/lib/theme";
 import { todayKey } from "@/lib/day";
 import { uploadAsset } from "./upload";
 import { Group, Hairline } from "./group";
@@ -140,7 +140,7 @@ export function ProposeSheet({ open, initialPath, onClose }: {
                   padding: 18, gap: 6, opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Body size={17} style={{ fontFamily: fonts.sansSemiBold }}>Paste my routine</Body>
+                <Body size={17} style={{ ...sf.semibold }}>Paste my routine</Body>
                 <Body size={15} color={t.mutedFg}>Keep your products and order. We turn the note into steps.</Body>
               </Pressable>
               <Pressable
@@ -150,7 +150,7 @@ export function ProposeSheet({ open, initialPath, onClose }: {
                   padding: 18, gap: 6, opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Body size={17} style={{ fontFamily: fonts.sansSemiBold }}>Recommend one for me</Body>
+                <Body size={17} style={{ ...sf.semibold }}>Recommend one for me</Body>
                 <Body size={15} color={t.mutedFg}>Cleanser, moisturizer, SPF, and at most two night actives.</Body>
               </Pressable>
             </>
@@ -225,7 +225,7 @@ export function ProposeSheet({ open, initialPath, onClose }: {
                   <View key={p.key}>
                     {i > 0 && <Hairline />}
                     <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 2 }}>
-                      <Body size={17} style={{ fontFamily: fonts.sansMedium }}>{p.name}</Body>
+                      <Body size={17} style={{ ...sf.medium }}>{p.name}</Body>
                       <Body size={13} color={t.mutedFg}>
                         {[p.brand, p.kind, p.zone].filter(Boolean).join(" · ")}
                       </Body>

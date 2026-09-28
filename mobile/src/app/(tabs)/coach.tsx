@@ -29,7 +29,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { IconButton, ScreenTitle, T, gap, motion, radius, space, squircle, type } from "@/components/ui/kit";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { sf, palette, useTheme } from "@/lib/theme";
 import { tap, warning } from "@/lib/haptics";
 import { todayKey } from "@/lib/day";
 
@@ -182,7 +182,7 @@ function CoachThread({ error }: { error: string | null }) {
                     fontSize: type.body.fontSize,
                     lineHeight: type.body.lineHeight,
                     letterSpacing: type.body.letterSpacing,
-                    fontFamily: fonts.sans,
+                    ...sf.regular,
                   }}
                 />
                 <SendButton />
@@ -449,7 +449,7 @@ function Inline({ text, color }: { text: string; color: string }) {
         const bold = /^\*\*([^*]+)\*\*$/.exec(p);
         if (bold) {
           return (
-            <Text key={i} style={{ fontFamily: fonts.sansSemiBold }}>
+            <Text key={i} style={{ ...sf.semibold }}>
               {bold[1]}
             </Text>
           );
@@ -475,7 +475,7 @@ function MarkdownText({ text }: { text: string }) {
               const top = !sub && j > 0 ? space[8] : 0;
               return (
                 <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start", marginLeft: sub ? space[24] : 0, marginTop: top }}>
-                  <Text style={{ color: t.secondaryLabel, ...(sub ? type.subhead : type.body), minWidth: sub ? space[12] : space[20], fontFamily: item.ordered ? fonts.mono : fonts.sans }}>
+                  <Text style={{ color: t.secondaryLabel, ...(sub ? type.subhead : type.body), minWidth: sub ? space[12] : space[20], ...(item.ordered ? sf.tabular : sf.regular) }}>
                     {item.marker}
                   </Text>
                   <View style={{ flex: 1 }}>

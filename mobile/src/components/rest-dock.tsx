@@ -6,7 +6,7 @@ import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { X } from "lucide-react-native";
 import { Eyebrow, Num } from "@/components/ui/kit";
-import { fonts, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 
 // The signature in-session moment, native edition: a glass dock floating
 // above the tab bar with a draining accent ring, one big countdown, the
@@ -64,7 +64,7 @@ export function RestDock({ seconds, startedAt, nextLabel, onSkip }: {
 
         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Text style={{
-            fontFamily: fonts.display, fontSize: 34, color: done ? t.accent : t.fg,
+            ...sf.bold, fontSize: 34, color: done ? t.accent : t.fg,
             fontVariant: ["tabular-nums"],
           }}>
             {done ? "GO" : `${mm}:${ss}`}

@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { Check } from "lucide-react-native";
-import { fonts, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,7 +28,7 @@ export function WeekDots({ hits, size = 30 }: { hits: boolean[]; size?: number }
             >
               {hit && <Check size={size * 0.45} strokeWidth={3} color="#000" />}
             </View>
-            <Text style={{ color: t.mutedFg, fontSize: 11, fontFamily: fonts.sans }}>{label}</Text>
+            <Text style={{ color: t.mutedFg, fontSize: 11, ...sf.regular }}>{label}</Text>
           </View>
         );
       })}

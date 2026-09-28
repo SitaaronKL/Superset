@@ -28,11 +28,13 @@ Read `README.md` for the full architecture. When working here:
   functions in `convex/engine.ts` (unit-tested in `engine.test.ts` via vitest —
   run `npm test`). The LLM may parse, phrase, or propose a nudge that
   `clampAdjustment` bounds; it must never emit an unbounded lifting number.
-- **Design language:** Apple-style pills (`rounded-full` buttons/inputs, large
-  `--radius`), shadcn/ui components everywhere (Item, Card, Drawer bottom-sheets,
-  ButtonGroup, Empty, AlertDialog, Popover), lucide-animated nav icons. Fonts:
-  Anton (display), Hanken Grotesk (UI), IBM Plex Mono for numbers (`.num`).
-  Black & white + one user accent (`var(--accent-user)`). Keep it dense.
+- **Design language (mobile, Sep 2026):** copy the ChatGPT iOS app as closely
+  as possible. Spec and reference screens: `docs/design/chatgpt/SPEC.md`.
+  SF Pro (system font) everywhere, true-black dark mode, one user accent,
+  floating glass controls, plain lists and inset-grouped cards without borders,
+  native sheets via `mobile/src/components/ui/sheet.tsx`. Tokens and components:
+  `mobile/src/lib/theme.tsx`, `mobile/src/components/ui/kit.tsx`, `mobile/DESIGN.md`.
+  The old Anton / Hanken Grotesk / Plex Mono brand is retired on mobile.
 - **LLM model:** GPT-5.5 everywhere (centralized constants in `agent.ts` /
   `coach.ts` / `food.ts`).
 - **Verify before claiming done:** `npx tsc --noEmit`, `npm test`, `npm run build`.

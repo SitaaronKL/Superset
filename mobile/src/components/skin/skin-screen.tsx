@@ -10,7 +10,7 @@ import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { Body, Display, Num, Pill } from "@/components/ui/kit";
-import { fonts, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 import { formatLongDate, todayKey, weekdayNarrow } from "@/lib/day";
 import { AskSection } from "./ask-section";
 import { Group } from "./group";
@@ -109,7 +109,7 @@ function LoadedBody({ day, products, onPropose }: {
     <>
       <View style={{ gap: 10 }}>
         <View style={{ gap: 4 }}>
-          <Body size={22} style={{ fontFamily: fonts.sansSemiBold }}>
+          <Body size={22} style={{ ...sf.semibold }}>
             {day.shaved ? "Shave day" : "No shave"}
           </Body>
           <Body size={15} color={t.mutedFg}>{rampLabel(day.rampWeek)}</Body>
@@ -162,7 +162,7 @@ function LoadedBody({ day, products, onPropose }: {
           })}
         >
           <SymbolView name="list.bullet" tintColor={t.fg} style={{ width: 16, height: 16 }} />
-          <Body size={17} style={{ flex: 1, fontFamily: fonts.sansMedium }}>My routine</Body>
+          <Body size={17} style={{ flex: 1, ...sf.medium }}>My routine</Body>
           <SymbolView name="chevron.right" tintColor={t.mutedFg} style={{ width: 12, height: 12 }} />
         </Pressable>
         <Pressable
@@ -175,7 +175,7 @@ function LoadedBody({ day, products, onPropose }: {
           })}
         >
           <SymbolView name="square.and.pencil" tintColor={t.fg} style={{ width: 16, height: 16 }} />
-          <Body size={17} style={{ flex: 1, fontFamily: fonts.sansMedium }}>Bring your own</Body>
+          <Body size={17} style={{ flex: 1, ...sf.medium }}>Bring your own</Body>
           <SymbolView name="chevron.right" tintColor={t.mutedFg} style={{ width: 12, height: 12 }} />
         </Pressable>
       </View>
@@ -275,7 +275,7 @@ function EmptyRoutine({ onPropose }: { onPropose: (path?: "import" | "recommend"
         <SymbolView name="drop.fill" tintColor={t.accent} style={{ width: 24, height: 24 }} />
       </View>
       <View style={{ gap: 6 }}>
-        <Body size={22} style={{ fontFamily: fonts.sansSemiBold }}>Start with today</Body>
+        <Body size={22} style={{ ...sf.semibold }}>Start with today</Body>
         <Body size={15} color={t.mutedFg}>
           Paste the routine you already use, or get a calm starter built around your goals.
         </Body>

@@ -6,17 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { View } from "react-native";
-import { useFonts } from "expo-font";
-import { Anton_400Regular } from "@expo-google-fonts/anton";
-import {
-  IBMPlexMono_400Regular,
-  IBMPlexMono_600SemiBold,
-} from "@expo-google-fonts/ibm-plex-mono";
-import {
-  HankenGrotesk_400Regular,
-  HankenGrotesk_500Medium,
-  HankenGrotesk_600SemiBold,
-} from "@expo-google-fonts/hanken-grotesk";
 import { ThemeProvider, palette, radius } from "@/lib/theme";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
@@ -32,20 +21,10 @@ const secureStorage = {
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    Anton_400Regular,
-    IBMPlexMono_400Regular,
-    IBMPlexMono_600SemiBold,
-    HankenGrotesk_400Regular,
-    HankenGrotesk_500Medium,
-    HankenGrotesk_600SemiBold,
-  });
-
+  // SF Pro is the system font, so there is nothing to load before first paint.
   useEffect(() => {
-    if (loaded) void SplashScreen.hideAsync();
-  }, [loaded]);
-
-  if (!loaded) return null;
+    void SplashScreen.hideAsync();
+  }, []);
 
   return (
     <ConvexAuthProvider client={convex} storage={secureStorage}>

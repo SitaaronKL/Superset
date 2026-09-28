@@ -1,3 +1,8 @@
+> **Superseded in part (Sep 2026):** the app now copies the ChatGPT iOS design.
+> Read `docs/design/chatgpt/SPEC.md` first; where it conflicts with this file
+> (fonts, uppercase eyebrows, title style, colors), the spec wins. SF Pro
+> replaced Anton, Hanken Grotesk, and Plex Mono. Use `Sheet` for every bottom sheet.
+
 # Mobile design system
 
 Dark-only iOS. Feels like a first-party Apple app crossed with ChatGPT iOS: dense, calm, surface contrast instead of boxes. Import tokens from `@/lib/theme`. Import components from `@/components/ui/kit`.

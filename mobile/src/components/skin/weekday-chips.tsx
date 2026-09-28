@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Body } from "@/components/ui/kit";
-import { fonts, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 import { WEEKDAYS } from "./types";
 
 export function WeekdayChips({ selected, onChange }: {
@@ -34,7 +34,7 @@ export function WeekdayChips({ selected, onChange }: {
               backgroundColor: on ? t.fg : t.muted,
             }}
           >
-            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ fontFamily: fonts.sansSemiBold }}>
+            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ ...sf.semibold }}>
               {d.label}
             </Body>
           </Pressable>

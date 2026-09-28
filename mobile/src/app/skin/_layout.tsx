@@ -1,5 +1,5 @@
 import { Stack } from "expo-router/stack";
-import { fonts, palette } from "@/lib/theme";
+import { sf, palette } from "@/lib/theme";
 
 export default function SkinStack() {
   return (
@@ -9,7 +9,7 @@ export default function SkinStack() {
         headerStyle: { backgroundColor: palette.bg },
         headerTintColor: palette.fg,
         headerShadowVisible: false,
-        headerTitleStyle: { fontFamily: fonts.sansSemiBold, fontSize: 17, color: palette.fg },
+        headerTitleStyle: { ...sf.semibold, fontSize: 17, color: palette.fg },
         contentStyle: { backgroundColor: palette.bg },
       }}
     >

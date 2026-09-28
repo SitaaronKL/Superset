@@ -12,7 +12,7 @@ import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Body, Display, Eyebrow, Field, Pill } from "@/components/ui/kit";
-import { fonts, palette, useTheme } from "@/lib/theme";
+import { sf, palette, useTheme } from "@/lib/theme";
 import { dateFromKey, todayKey } from "@/lib/day";
 import { Group, Hairline } from "./group";
 import { WeekdayChips } from "./weekday-chips";
@@ -55,7 +55,7 @@ export function RoutineEditor() {
           <View style={{ flexDirection: "row", alignItems: "baseline" }}>
             <Eyebrow style={{ flex: 1 }}>Products</Eyebrow>
             <Pressable onPress={() => setProductEdit("new")} hitSlop={8}>
-              <Body size={13} color={t.accent} style={{ fontFamily: fonts.sansSemiBold }}>Add</Body>
+              <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Add</Body>
             </Pressable>
           </View>
           <Group>
@@ -80,7 +80,7 @@ export function RoutineEditor() {
                     <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: t.muted }} />
                   )}
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Body size={17} style={{ fontFamily: fonts.sansMedium }}>{p.name}</Body>
+                    <Body size={17} style={{ ...sf.medium }}>{p.name}</Body>
                     <Body size={13} color={t.mutedFg}>
                       {[p.brand, p.kind, p.zone].filter(Boolean).join(" · ")}
                     </Body>
@@ -107,7 +107,7 @@ export function RoutineEditor() {
                   onPress={() => setStepEdit({ slot: slot.id, productId: data.products[0]?._id })}
                   hitSlop={8}
                 >
-                  <Body size={13} color={t.accent} style={{ fontFamily: fonts.sansSemiBold }}>Add step</Body>
+                  <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Add step</Body>
                 </Pressable>
               </View>
               <Group>
@@ -134,7 +134,7 @@ export function RoutineEditor() {
         <View style={{ gap: 8 }}>
           <Eyebrow>Schedule</Eyebrow>
           <Group style={{ padding: 16, gap: 14, overflow: "visible" }}>
-            <Body size={17} style={{ fontFamily: fonts.sansMedium }}>Routine start</Body>
+            <Body size={17} style={{ ...sf.medium }}>Routine start</Body>
             <Body size={13} color={t.mutedFg}>Ramp-up counts from this day.</Body>
             <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
               <DatePicker
@@ -147,7 +147,7 @@ export function RoutineEditor() {
                 }}
               />
             </Host>
-            <Body size={17} style={{ fontFamily: fonts.sansMedium }}>Usual shave days</Body>
+            <Body size={17} style={{ ...sf.medium }}>Usual shave days</Body>
             <WeekdayChips
               selected={shaveDays}
               onChange={(next) => void setSetting({ key: "skinShaveDays", value: JSON.stringify(next) })}
@@ -188,7 +188,7 @@ function StepEditorRow({ step, isFirst, isLast, onEdit }: {
           backgroundColor: pressed ? t.muted : "transparent",
         })}
       >
-        <Body size={17} style={{ fontFamily: fonts.sansMedium }}>{step.productName}</Body>
+        <Body size={17} style={{ ...sf.medium }}>{step.productName}</Body>
         <Body size={13} color={t.mutedFg} numberOfLines={1}>
           {step.howTo || (step.brand ?? step.kind)}
         </Body>
@@ -555,7 +555,7 @@ function ChipRow({ values, selected, onChange }: {
               backgroundColor: on ? t.fg : t.muted,
             }}
           >
-            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ fontFamily: fonts.sansMedium }}>{v}</Body>
+            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ ...sf.medium }}>{v}</Body>
           </Pressable>
         );
       })}

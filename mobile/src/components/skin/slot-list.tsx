@@ -4,7 +4,7 @@ import Animated, { LinearTransition, useReducedMotion } from "react-native-reani
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
 import { Body, Eyebrow, Num } from "@/components/ui/kit";
-import { fonts, useTheme } from "@/lib/theme";
+import { sf, useTheme } from "@/lib/theme";
 import { CheckCircle } from "./check-circle";
 import { Group, Hairline } from "./group";
 import { productParts, SLOTS, type PlannedRow } from "./types";
@@ -63,7 +63,7 @@ function SlotSection({ title, rows, products, onToggle, onComplete }: {
             hitSlop={8}
             style={{ marginLeft: 12 }}
           >
-            <Body size={13} color={t.accent} style={{ fontFamily: fonts.sansSemiBold }}>Done all</Body>
+            <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Done all</Body>
           </Pressable>
         )}
       </View>
@@ -91,7 +91,7 @@ function SlotSection({ title, rows, products, onToggle, onComplete }: {
               <SymbolView name="checkmark" tintColor={t.accentFg} weight="bold" style={{ width: 12, height: 12 }} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
-              <Body size={17} style={{ fontFamily: fonts.sansSemiBold }}>{title} done</Body>
+              <Body size={17} style={{ ...sf.semibold }}>{title} done</Body>
               <Body size={13} color={t.mutedFg}>{rows.length} {rows.length === 1 ? "step" : "steps"}</Body>
             </View>
           </Pressable>
@@ -143,11 +143,11 @@ function StepRow({ row, index, products, onToggle }: {
     >
       <Num size={13} color={t.mutedFg} style={{ width: 18, marginTop: 6, textAlign: "right" }}>{index}</Num>
       <View style={{ flex: 1, gap: 2, paddingTop: 2 }}>
-        <Body size={17} style={{ fontFamily: fonts.sansMedium }}>{name}</Body>
+        <Body size={17} style={{ ...sf.medium }}>{name}</Body>
         {brand ? <Body size={13} color={t.mutedFg}>{brand}</Body> : null}
         {row.howTo ? <Body size={15} color={t.mutedFg}>{row.howTo}</Body> : null}
         {row.note ? (
-          <Body size={15} color={t.accent} style={{ fontFamily: fonts.sansMedium }}>{row.note}</Body>
+          <Body size={15} color={t.accent} style={{ ...sf.medium }}>{row.note}</Body>
         ) : null}
       </View>
       <CheckCircle

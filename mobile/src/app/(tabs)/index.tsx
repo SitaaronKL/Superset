@@ -7,6 +7,7 @@ import { BottomSheet, Host, RNHostView } from "@expo/ui";
 import { Button, ConfirmationDialog, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
 import { labelsHidden, pickerStyle, presentationBackground, tag, tint } from "@expo/ui/swift-ui/modifiers";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
+import { Sheet } from "@/components/ui/sheet";
 import { useMutation, useQuery } from "convex/react";
 import { SymbolView } from "expo-symbols";
 import Animated, {
@@ -229,34 +230,24 @@ function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName:
       </ScrollView>
       <ScreenFades />
 
-      {/* Day picker. Omit snapPoints so the native sheet sizes to the rows. Swipe dismisses, so there is no Cancel. */}
-      <BottomSheet
-        isPresented={pickOpen}
-        onDismiss={() => setPickOpen(false)}
-        showDragIndicator
-        modifiers={[presentationBackground(t.bg)]}
-      >
-        <RNHostView matchContents>
-          <View style={{ width: windowWidth - space[32], gap: gap.group, paddingBottom: insets.bottom }}>
-            <T variant="title2">What are we training?</T>
-            <Section>
-              {days.map((d) => (
-                <Row
-                  key={d._id}
-                  title={d.name}
-                  value={`${d.exerciseIds.length} exercises`}
-                  onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
-                />
-              ))}
-              <Row
-                title="Freestyle session"
-                subtitle="No template"
-                onPress={() => { setPickOpen(false); void start({}); }}
-              />
-            </Section>
-          </View>
-        </RNHostView>
-      </BottomSheet>
+      {/* Day picker: fits its rows; swipe or tap outside dismisses. */}
+      <Sheet isPresented={pickOpen} onDismiss={() => setPickOpen(false)} title="What are we training?">
+        <Section>
+          {days.map((d) => (
+            <Row
+              key={d._id}
+              title={d.name}
+              value={`${d.exerciseIds.length} exercises`}
+              onPress={() => { setPickOpen(false); void start({ programDayId: d._id }); }}
+            />
+          ))}
+          <Row
+            title="Freestyle session"
+            subtitle="No template"
+            onPress={() => { setPickOpen(false); void start({}); }}
+          />
+        </Section>
+      </Sheet>
     </Screen>
   );
 }

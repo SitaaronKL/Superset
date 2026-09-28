@@ -24,7 +24,7 @@ import {
   isLiquidGlassAvailable,
 } from "expo-glass-effect";
 import {
-  fonts,
+  sf,
   gap,
   motion,
   radius,
@@ -72,22 +72,11 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
   );
 }
 
+/** Section label above a group: 15 regular, secondary, sentence case (ChatGPT style). */
 export function Eyebrow({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const t = useTheme();
   return (
-    <Text
-      style={[
-        {
-          color: t.secondaryLabel,
-          fontFamily: fonts.sansSemiBold,
-          fontSize: type.caption.fontSize,
-          lineHeight: type.caption.lineHeight,
-          letterSpacing: 1.4,
-          textTransform: "uppercase",
-        },
-        style,
-      ]}
-    >
+    <Text style={[{ color: t.secondaryLabel, ...type.subhead }, style]}>
       {children}
     </Text>
   );
@@ -103,11 +92,10 @@ export function Display({ children, size = type.title.fontSize, color, style, nu
       style={[
         {
           color: color ?? t.label,
-          fontFamily: fonts.display,
+          ...sf.bold,
           fontSize: size,
-          lineHeight: Math.round(size * 1.18),
-          textTransform: "uppercase",
-          letterSpacing: size >= 28 ? type.title.letterSpacing : 0.3,
+          lineHeight: Math.round(size * 1.2),
+          letterSpacing: size >= 28 ? type.title.letterSpacing : -0.2,
         },
         style,
       ]}
@@ -129,8 +117,7 @@ export function Num({ children, size = 16, weight = "regular", color, style }: {
           color: color ?? t.label,
           fontSize: size,
           lineHeight: Math.round(size * 1.25),
-          fontVariant: ["tabular-nums"],
-          fontFamily: weight === "semibold" ? fonts.monoSemiBold : fonts.mono,
+          ...(weight === "semibold" ? sf.tabularSemibold : sf.tabular),
         },
         style,
       ]}
@@ -151,7 +138,7 @@ export function Body({ children, size = type.body.fontSize, color, style, number
         {
           color: color ?? t.label,
           fontSize: size,
-          fontFamily: fonts.sans,
+          ...sf.regular,
           lineHeight: Math.round(size * (type.body.lineHeight / type.body.fontSize)),
           letterSpacing: type.body.letterSpacing,
         },
@@ -203,7 +190,7 @@ export function Pill({ label, onPress, kind = "primary", disabled, style, haptic
         style,
       ]}
     >
-      <Text style={{ color: fg, fontFamily: fonts.sansSemiBold, fontSize: type.subhead.fontSize, letterSpacing: type.subhead.letterSpacing }}>
+      <Text style={{ color: fg, ...sf.semibold, fontSize: type.subhead.fontSize, letterSpacing: type.subhead.letterSpacing }}>
         {label}
       </Text>
     </Pressable>
@@ -227,7 +214,7 @@ export function Field(props: React.ComponentProps<typeof TextInput> & { mono?: b
           color: t.label,
           fontSize: type.subhead.fontSize,
           letterSpacing: type.subhead.letterSpacing,
-          fontFamily: mono ? fonts.mono : fonts.sans,
+          ...(mono ? sf.tabular : sf.regular),
         },
         style,
       ]}
@@ -373,6 +360,54 @@ export function IconButton({
 }
 
 // ---------------------------------------------------------------------------
+// Glass pill (top-right action group) and floating action (ChatGPT's "Chat")
+// ---------------------------------------------------------------------------
+
+/** Groups 1 to 3 plain IconButtons in one glass capsule, like ChatGPT's top-right controls. */
+export function GlassPill({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const t = useTheme();
+  const row = <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space[4], height: 44 }}>{children}</View>;
+  if (!glassOk()) {
+    return <View style={[{ borderRadius: 22, backgroundColor: t.elevated }, style]}>{row}</View>;
+  }
+  return (
+    <GlassView isInteractive colorScheme="dark" style={[{ borderRadius: 22 }, style]}>
+      {row}
+    </GlassView>
+  );
+}
+
+/** The primary create action: a dark floating pill, bottom right, icon + label. */
+export function FloatingAction({ icon, label, onPress, bottom, accessibilityLabel }: {
+  icon: SFSymbol;
+  label: string;
+  onPress: () => void;
+  /** Distance from the bottom of the screen (clear the tab bar). */
+  bottom: number;
+  accessibilityLabel?: string;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      onPress={() => { tap(); onPress(); }}
+      style={({ pressed }) => ({
+        position: "absolute", right: space[16], bottom,
+        flexDirection: "row", alignItems: "center", gap: space[8],
+        height: 48, paddingHorizontal: space[20], borderRadius: 24,
+        backgroundColor: t.elevated2,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <SymbolView name={icon} size={18} tintColor={t.label} weight="medium" />
+      <Text style={{ color: t.label, ...type.headline }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Inset-grouped section + row
 // ---------------------------------------------------------------------------
 
@@ -437,12 +472,17 @@ export function Row({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
+  // iOS Settings style: a tappable row always shows its chevron, after the value if there is one.
+  const chevron = onPress ? (
+    <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
+  ) : null;
   const trailing = accessory ?? (
     value != null ? (
-      <T variant="body" color={t.secondaryLabel} numberOfLines={1}>{value}</T>
-    ) : onPress ? (
-      <SymbolView name="chevron.right" size={14} tintColor={t.tertiaryLabel} weight="semibold" />
-    ) : null
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space[8], flexShrink: 1 }}>
+        <T variant="body" color={t.secondaryLabel} numberOfLines={1}>{value}</T>
+        {chevron}
+      </View>
+    ) : chevron
   );
   const body = (
     <View
