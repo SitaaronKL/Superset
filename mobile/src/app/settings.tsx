@@ -172,7 +172,8 @@ export default function SettingsScreen() {
   const { signOut } = useAuthActions();
   const settings = useQuery(api.settings.getAll);
   const setSetting = useMutation(api.settings.set);
-  const dismiss = () => router.back();
+  // Opened without a back stack (deep link, reload), fall back to Train instead of erroring.
+  const dismiss = () => (router.canGoBack() ? router.back() : router.replace("/"));
 
   if (!settings) {
     return (
