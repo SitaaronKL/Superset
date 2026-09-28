@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
 import * as ImagePicker from "expo-image-picker";
-import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { BottomSheet, Host } from "@expo/ui";
+import { Host } from "@expo/ui";
 import { Button, ConfirmationDialog, DatePicker, Picker, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
-import { labelsHidden, pickerStyle, presentationBackground, tag, tint } from "@expo/ui/swift-ui/modifiers";
+import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
 import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Body, Display, Eyebrow, Field, Pill } from "@/components/ui/kit";
-import { sf, palette, useTheme } from "@/lib/theme";
+import { Field, Pill, Row, Section, Skeleton, T, gap, radius, space, squircle } from "@/components/ui/kit";
+import { Sheet } from "@/components/ui/sheet";
+import { sf, useTheme } from "@/lib/theme";
+import { success, tap } from "@/lib/haptics";
 import { dateFromKey, todayKey } from "@/lib/day";
-import { Group, Hairline } from "./group";
+import { SheetNav } from "./sheet-nav";
 import { WeekdayChips } from "./weekday-chips";
 import { uploadAsset } from "./upload";
 import {
   KINDS, SLOTS, ZONES, type RoutineProduct, type RoutineStep, type ShaveMode, type Slot,
 } from "./types";
 
-export function RoutineEditor() {
+export function RoutineEditor({ scroll = true }: { scroll?: boolean }) {
   const t = useTheme();
-  const padTop = 16;
   const insets = useSafeAreaInsets();
   const dayKey = todayKey();
   const data = useQuery(api.skin.routine, { todayKey: dayKey });
@@ -35,9 +35,10 @@ export function RoutineEditor() {
 
   if (data === undefined || day === undefined) {
     return (
-      <View style={{ padding: 16, paddingTop: padTop }}>
-        <View style={{ height: 18, width: 120, borderRadius: 8, backgroundColor: t.muted }} />
-        <View style={{ height: 88, borderRadius: 22, backgroundColor: t.card, marginTop: 16 }} />
+      <View style={{ gap: gap.group }}>
+        <Skeleton height={18} width={120} />
+        <Skeleton height={88} />
+        <Skeleton height={120} />
       </View>
     );
   }
@@ -45,116 +46,139 @@ export function RoutineEditor() {
   const shaveDays: number[] = day.shaveDays ?? [];
   const startDate = day.startDate;
 
-  return (
+  const body = (
     <>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, gap: 22, paddingBottom: insets.bottom + 28 }}
-      >
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-            <Eyebrow style={{ flex: 1 }}>Products</Eyebrow>
+      <Section
+        header={
+          <View style={{ flexDirection: "row", alignItems: "baseline", paddingHorizontal: space[16] }}>
+            <T variant="footnote" style={{ flex: 1 }}>Products</T>
             <Pressable onPress={() => setProductEdit("new")} hitSlop={8}>
-              <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Add</Body>
+              <T variant="footnote" color={t.accent} style={sf.semibold}>Add</T>
             </Pressable>
           </View>
-          <Group>
-            {data.products.length === 0 ? (
-              <View style={{ padding: 16 }}>
-                <Body size={15} color={t.mutedFg}>No products yet.</Body>
-              </View>
-            ) : data.products.map((p, i) => (
-              <View key={p._id}>
-                {i > 0 && <Hairline />}
-                <Pressable
-                  onPress={() => setProductEdit(p._id)}
-                  style={({ pressed }) => ({
-                    flexDirection: "row", alignItems: "center", gap: 12,
-                    paddingHorizontal: 16, paddingVertical: 12,
-                    backgroundColor: pressed ? t.muted : "transparent",
-                  })}
-                >
-                  {p.imageUrl ? (
-                    <Image source={{ uri: p.imageUrl }} style={{ width: 40, height: 40, borderRadius: 10 }} />
-                  ) : (
-                    <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: t.muted }} />
-                  )}
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Body size={17} style={{ ...sf.medium }}>{p.name}</Body>
-                    <Body size={13} color={t.mutedFg}>
-                      {[p.brand, p.kind, p.zone].filter(Boolean).join(" · ")}
-                    </Body>
-                    {p.refillDaysLeft !== null && p.refillDaysLeft < 14 && (
-                      <Body size={13} color={t.accent}>
-                        {p.refillDaysLeft < 0 ? "Refill now" : `${p.refillDaysLeft} days left`}
-                      </Body>
-                    )}
-                  </View>
-                  <SymbolView name="chevron.right" tintColor={t.mutedFg} style={{ width: 12, height: 12 }} />
-                </Pressable>
-              </View>
-            ))}
-          </Group>
-        </View>
-
-        {SLOTS.map((slot) => {
-          const rows = data.steps.filter((s) => s.slot === slot.id);
+        }
+      >
+        {data.products.length === 0 ? (
+          <View style={{ paddingHorizontal: space[16], paddingVertical: space[12] }}>
+            <T variant="subhead">No products yet.</T>
+          </View>
+        ) : data.products.map((p) => {
+          const refill =
+            p.refillDaysLeft !== null && p.refillDaysLeft < 14
+              ? p.refillDaysLeft < 0 ? "Refill now" : `${p.refillDaysLeft} days left`
+              : null;
+          const subtitle = [p.brand, refill].filter(Boolean).join(" · ") || undefined;
           return (
-            <View key={slot.id} style={{ gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-                <Eyebrow style={{ flex: 1 }}>{slot.label}</Eyebrow>
+            <Row
+              key={p._id}
+              title={p.name}
+              subtitle={subtitle}
+              leading={
+                p.imageUrl ? (
+                  <Image
+                    source={{ uri: p.imageUrl }}
+                    style={{ width: 40, height: 40, borderRadius: 10, ...squircle }}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      ...squircle,
+                      backgroundColor: t.elevated2,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <SymbolView name="drop.fill" tintColor={t.secondaryLabel} size={18} />
+                  </View>
+                )
+              }
+              onPress={() => setProductEdit(p._id)}
+            />
+          );
+        })}
+      </Section>
+
+      {SLOTS.map((slot) => {
+        const rows = data.steps.filter((s) => s.slot === slot.id);
+        return (
+          <Section
+            key={slot.id}
+            header={
+              <View style={{ flexDirection: "row", alignItems: "baseline", paddingHorizontal: space[16] }}>
+                <T variant="footnote" style={{ flex: 1 }}>{slot.label}</T>
                 <Pressable
                   onPress={() => setStepEdit({ slot: slot.id, productId: data.products[0]?._id })}
                   hitSlop={8}
                 >
-                  <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Add step</Body>
+                  <T variant="footnote" color={t.accent} style={sf.semibold}>Add step</T>
                 </Pressable>
               </View>
-              <Group>
-                {rows.length === 0 ? (
-                  <View style={{ padding: 16 }}>
-                    <Body size={15} color={t.mutedFg}>Nothing in {slot.label.toLowerCase()}.</Body>
-                  </View>
-                ) : rows.map((s, i) => (
-                  <View key={s._id}>
-                    {i > 0 && <Hairline />}
-                    <StepEditorRow
-                      step={s}
-                      isFirst={i === 0}
-                      isLast={i === rows.length - 1}
-                      onEdit={() => setStepEdit({ id: s._id, slot: s.slot, productId: s.productId })}
-                    />
-                  </View>
-                ))}
-              </Group>
-            </View>
-          );
-        })}
-
-        <View style={{ gap: 8 }}>
-          <Eyebrow>Schedule</Eyebrow>
-          <Group style={{ padding: 16, gap: 14, overflow: "visible" }}>
-            <Body size={17} style={{ ...sf.medium }}>Routine start</Body>
-            <Body size={13} color={t.mutedFg}>Ramp-up counts from this day.</Body>
-            <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
-              <DatePicker
-                title="Start date"
-                selection={startDate ? dateFromKey(startDate) : new Date()}
-                displayedComponents={["date"]}
-                onDateChange={(d) => {
-                  void Haptics.selectionAsync();
-                  void setSetting({ key: "skinStartDate", value: todayKey(d) });
-                }}
+            }
+          >
+            {rows.length === 0 ? (
+              <View style={{ paddingHorizontal: space[16], paddingVertical: space[12] }}>
+                <T variant="subhead">Nothing in {slot.label.toLowerCase()}.</T>
+              </View>
+            ) : rows.map((s, i) => (
+              <StepEditorRow
+                key={s._id}
+                step={s}
+                isFirst={i === 0}
+                isLast={i === rows.length - 1}
+                onEdit={() => setStepEdit({ id: s._id, slot: s.slot, productId: s.productId })}
               />
-            </Host>
-            <Body size={17} style={{ ...sf.medium }}>Usual shave days</Body>
-            <WeekdayChips
-              selected={shaveDays}
-              onChange={(next) => void setSetting({ key: "skinShaveDays", value: JSON.stringify(next) })}
+            ))}
+          </Section>
+        );
+      })}
+
+      <Section header="Schedule">
+        <View style={{ paddingHorizontal: space[16], paddingVertical: space[12], gap: space[12] }}>
+          <View style={{ gap: space[4] }}>
+            <T variant="body" color={t.label}>Routine start</T>
+            <T variant="footnote">Ramp-up counts from this day.</T>
+          </View>
+          <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+            <DatePicker
+              title="Start date"
+              selection={startDate ? dateFromKey(startDate) : new Date()}
+              displayedComponents={["date"]}
+              onDateChange={(d) => {
+                tap();
+                void setSetting({ key: "skinStartDate", value: todayKey(d) });
+              }}
             />
-          </Group>
+          </Host>
+          <T variant="body" color={t.label}>Usual shave days</T>
+          <WeekdayChips
+            selected={shaveDays}
+            onChange={(next) => void setSetting({ key: "skinShaveDays", value: JSON.stringify(next) })}
+          />
         </View>
-      </ScrollView>
+      </Section>
+    </>
+  );
+
+  return (
+    <>
+      {scroll ? (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            gap: gap.section,
+            paddingHorizontal: gap.screen,
+            paddingTop: space[16],
+            paddingBottom: insets.bottom + space[24],
+          }}
+        >
+          {body}
+        </ScrollView>
+      ) : (
+        <View style={{ gap: gap.section }}>{body}</View>
+      )}
 
       <ProductSheet
         products={data.products}
@@ -180,36 +204,31 @@ function StepEditorRow({ step, isFirst, isLast, onEdit }: {
   const t = useTheme();
   const moveStep = useMutation(api.skin.moveStep);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 8 }}>
-      <Pressable
-        onPress={onEdit}
-        style={({ pressed }) => ({
-          flex: 1, paddingHorizontal: 16, paddingVertical: 12, gap: 2,
-          backgroundColor: pressed ? t.muted : "transparent",
-        })}
-      >
-        <Body size={17} style={{ ...sf.medium }}>{step.productName}</Body>
-        <Body size={13} color={t.mutedFg} numberOfLines={1}>
-          {step.howTo || (step.brand ?? step.kind)}
-        </Body>
-      </Pressable>
-      <Pressable
-        disabled={isFirst}
-        onPress={() => { void Haptics.selectionAsync(); void moveStep({ id: step._id, direction: "up" }); }}
-        hitSlop={6}
-        style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: isFirst ? 0.25 : 1 }}
-      >
-        <SymbolView name="chevron.up" tintColor={t.fg} style={{ width: 14, height: 14 }} />
-      </Pressable>
-      <Pressable
-        disabled={isLast}
-        onPress={() => { void Haptics.selectionAsync(); void moveStep({ id: step._id, direction: "down" }); }}
-        hitSlop={6}
-        style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: isLast ? 0.25 : 1 }}
-      >
-        <SymbolView name="chevron.down" tintColor={t.fg} style={{ width: 14, height: 14 }} />
-      </Pressable>
-    </View>
+    <Row
+      title={step.productName}
+      subtitle={step.howTo || (step.brand ?? step.kind) || undefined}
+      onPress={onEdit}
+      accessory={
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pressable
+            disabled={isFirst}
+            onPress={() => { tap(); void moveStep({ id: step._id, direction: "up" }); }}
+            hitSlop={6}
+            style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: isFirst ? 0.25 : 1 }}
+          >
+            <SymbolView name="chevron.up" tintColor={t.label} size={14} />
+          </Pressable>
+          <Pressable
+            disabled={isLast}
+            onPress={() => { tap(); void moveStep({ id: step._id, direction: "down" }); }}
+            hitSlop={6}
+            style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", opacity: isLast ? 0.25 : 1 }}
+          >
+            <SymbolView name="chevron.down" tintColor={t.label} size={14} />
+          </Pressable>
+        </View>
+      }
+    />
   );
 }
 
@@ -219,8 +238,6 @@ function ProductSheet({ products, editing, onClose }: {
   onClose: () => void;
 }) {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
   const saveProduct = useMutation(api.skin.saveProduct);
   const archiveProduct = useMutation(api.skin.archiveProduct);
   const generateUploadUrl = useMutation(api.skin.generateUploadUrl);
@@ -280,84 +297,73 @@ function ProductSheet({ products, editing, onClose }: {
         lastsDays: Number.isFinite(lastsDays) ? lastsDays : undefined,
         openedOn: openedOn.trim() || undefined,
       });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      success();
       onClose();
     } finally {
       setBusy(false);
     }
   };
 
-  const sheetWidth = width - 32;
-  const sheetHeight = Math.max(420, Math.round(height * 0.92) - 36);
-
   return (
-    <BottomSheet
-      isPresented={editing !== null}
-      onDismiss={onClose}
-      snapPoints={[{ fraction: 0.92 }]}
-      modifiers={[presentationBackground(palette.bg)]}
-    >
-      <RNHostView matchContents>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ width: sheetWidth, height: sheetHeight, backgroundColor: t.bg }}
-          contentContainerStyle={{ gap: 12, paddingBottom: insets.bottom + 12 }}
-        >
-          <Display size={24}>{existing ? "Edit product" : "Add product"}</Display>
-          <Pressable
-            onPress={() => void pick()}
-            style={{
-              height: 88, borderRadius: 18, borderCurve: "continuous", backgroundColor: t.card,
-              alignItems: "center", justifyContent: "center", overflow: "hidden",
-            }}
+    <Sheet isPresented={editing !== null} onDismiss={onClose} scroll fraction={0.92}>
+      <SheetNav title={existing ? "Edit product" : "Add product"} onClose={onClose} />
+      <Pressable
+        onPress={() => void pick()}
+        style={{
+          height: 88,
+          borderRadius: 18,
+          ...squircle,
+          backgroundColor: t.elevated2,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        {preview ? (
+          <Image source={{ uri: preview }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+        ) : (
+          <T variant="subhead">Add a bottle photo</T>
+        )}
+      </Pressable>
+      <Field value={name} onChangeText={setName} placeholder="Name" />
+      <Field value={brand} onChangeText={setBrand} placeholder="Brand" />
+      <ChipRow values={KINDS} selected={kind} onChange={setKind} />
+      <ChipRow values={ZONES} selected={zone} onChange={setZone} />
+      <Field value={why} onChangeText={setWhy} placeholder="Why you use it (optional)" />
+      <Field mono value={lasts} onChangeText={setLasts} placeholder="Days one bottle lasts" keyboardType="number-pad" />
+      <Field mono value={openedOn} onChangeText={setOpenedOn} placeholder="Opened on (YYYY-MM-DD)" />
+      <Pill label={busy ? "Saving..." : "Save"} kind="primary" disabled={!name.trim() || busy} onPress={() => void save()} />
+      {existing ? (
+        <Host matchContents colorScheme="dark">
+          <ConfirmationDialog
+            title="Archive this product?"
+            isPresented={confirm}
+            onIsPresentedChange={setConfirm}
+            titleVisibility="visible"
           >
-            {preview ? (
-              <Image source={{ uri: preview }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-            ) : (
-              <Body size={13} color={t.mutedFg}>Add a bottle photo</Body>
-            )}
-          </Pressable>
-          <Field value={name} onChangeText={setName} placeholder="Name" />
-          <Field value={brand} onChangeText={setBrand} placeholder="Brand" />
-          <ChipRow values={KINDS} selected={kind} onChange={setKind} />
-          <ChipRow values={ZONES} selected={zone} onChange={setZone} />
-          <Field value={why} onChangeText={setWhy} placeholder="Why you use it (optional)" />
-          <Field mono value={lasts} onChangeText={setLasts} placeholder="Days one bottle lasts" keyboardType="number-pad" />
-          <Field mono value={openedOn} onChangeText={setOpenedOn} placeholder="Opened on (YYYY-MM-DD)" />
-          <Pill label={busy ? "Saving…" : "Save"} kind="accent" disabled={!name.trim() || busy} onPress={() => void save()} />
-          {existing && (
-            <Host matchContents colorScheme="dark">
-              <ConfirmationDialog
-                title="Archive this product?"
-                isPresented={confirm}
-                onIsPresentedChange={setConfirm}
-                titleVisibility="visible"
-              >
-                <ConfirmationDialog.Trigger>
-                  <RNHostView matchContents>
-                    <Pill label="Archive" kind="outline" onPress={() => setConfirm(true)} />
-                  </RNHostView>
-                </ConfirmationDialog.Trigger>
-                <ConfirmationDialog.Message>
-                  <SwiftText>Its steps leave the routine. Past check-offs stay.</SwiftText>
-                </ConfirmationDialog.Message>
-                <ConfirmationDialog.Actions>
-                  <Button label="Keep" role="cancel" />
-                  <Button
-                    label="Archive"
-                    role="destructive"
-                    onPress={() => {
-                      void archiveProduct({ id: existing._id });
-                      onClose();
-                    }}
-                  />
-                </ConfirmationDialog.Actions>
-              </ConfirmationDialog>
-            </Host>
-          )}
-        </ScrollView>
-      </RNHostView>
-    </BottomSheet>
+            <ConfirmationDialog.Trigger>
+              <RNHostView matchContents>
+                <Pill label="Archive" kind="outline" onPress={() => setConfirm(true)} />
+              </RNHostView>
+            </ConfirmationDialog.Trigger>
+            <ConfirmationDialog.Message>
+              <SwiftText>Its steps leave the routine. Past check-offs stay.</SwiftText>
+            </ConfirmationDialog.Message>
+            <ConfirmationDialog.Actions>
+              <Button label="Keep" role="cancel" />
+              <Button
+                label="Archive"
+                role="destructive"
+                onPress={() => {
+                  void archiveProduct({ id: existing._id });
+                  onClose();
+                }}
+              />
+            </ConfirmationDialog.Actions>
+          </ConfirmationDialog>
+        </Host>
+      ) : null}
+    </Sheet>
   );
 }
 
@@ -368,8 +374,6 @@ function StepSheet({ products, steps, editing, onClose }: {
   onClose: () => void;
 }) {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
   const saveStep = useMutation(api.skin.saveStep);
   const deleteStep = useMutation(api.skin.deleteStep);
   const existing = editing?.id ? steps.find((s) => s._id === editing.id) : undefined;
@@ -410,126 +414,135 @@ function StepSheet({ products, steps, editing, onClose }: {
         shaveNote: shaveNote.trim() || undefined,
         group: group.trim() || undefined,
       });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      success();
       onClose();
     } finally {
       setBusy(false);
     }
   };
 
-  const sheetWidth = width - 32;
-  const sheetHeight = Math.max(420, Math.round(height * 0.92) - 36);
   const product = products.find((p) => p._id === productId);
 
   return (
-    <BottomSheet
-      isPresented={editing !== null}
-      onDismiss={onClose}
-      snapPoints={[{ fraction: 0.92 }]}
-      modifiers={[presentationBackground(palette.bg)]}
-    >
-      <RNHostView matchContents>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ width: sheetWidth, height: sheetHeight, backgroundColor: t.bg }}
-          contentContainerStyle={{ gap: 12, paddingBottom: insets.bottom + 12 }}
-        >
-          <Display size={24}>{existing ? "Edit step" : "Add step"}</Display>
-          <Eyebrow>Product</Eyebrow>
-          <Group>
-            {products.map((p, i) => (
-              <View key={p._id}>
-                {i > 0 && <Hairline />}
-                <Pressable
-                  onPress={() => setProductId(p._id)}
-                  style={{
-                    paddingHorizontal: 16, paddingVertical: 12,
-                    backgroundColor: p._id === productId ? t.accentTint : "transparent",
-                  }}
-                >
-                  <Body size={17}>{p.name}</Body>
-                  {p.brand ? <Body size={13} color={t.mutedFg}>{p.brand}</Body> : null}
-                </Pressable>
-              </View>
-            ))}
-            {products.length === 0 && (
-              <View style={{ padding: 16 }}>
-                <Body size={15} color={t.mutedFg}>Add a product first.</Body>
-              </View>
-            )}
-          </Group>
-
-          <Eyebrow>Slot</Eyebrow>
-          <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
-            <Picker<Slot>
-              label="Slot"
-              selection={slot}
-              onSelectionChange={setSlot}
-              modifiers={[pickerStyle("segmented"), labelsHidden(), tint(t.accent)]}
+    <Sheet isPresented={editing !== null} onDismiss={onClose} scroll fraction={0.92}>
+      <SheetNav title={existing ? "Edit step" : "Add step"} onClose={onClose} />
+      <T variant="footnote">Product</T>
+      <View style={{ backgroundColor: t.elevated, borderRadius: radius.card, ...squircle, overflow: "hidden" }}>
+        {products.map((p) => {
+          const on = p._id === productId;
+          return (
+            <Pressable
+              key={p._id}
+              onPress={() => setProductId(p._id)}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space[12],
+                paddingHorizontal: space[16],
+                paddingVertical: space[12],
+                backgroundColor: pressed ? t.elevated2 : "transparent",
+              })}
             >
-              <SwiftText modifiers={[tag("am")]}>Morning</SwiftText>
-              <SwiftText modifiers={[tag("pm")]}>Night</SwiftText>
-              <SwiftText modifiers={[tag("shower")]}>Shower</SwiftText>
-            </Picker>
-          </Host>
-
-          <Field value={howTo} onChangeText={setHowTo} placeholder="How to use it" />
-          <Eyebrow>Days</Eyebrow>
-          <WeekdayChips selected={days} onChange={setDays} />
-
-          <Eyebrow>On a shave day</Eyebrow>
-          <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
-            <Picker<ShaveMode>
-              label="Shave day"
-              selection={shave}
-              onSelectionChange={setShave}
-              modifiers={[pickerStyle("segmented"), labelsHidden(), tint(t.accent)]}
-            >
-              <SwiftText modifiers={[tag("normal")]}>Usual</SwiftText>
-              <SwiftText modifiers={[tag("skip")]}>Skip</SwiftText>
-              <SwiftText modifiers={[tag("include")]}>Always</SwiftText>
-            </Picker>
-          </Host>
-          <Field value={shaveNote} onChangeText={setShaveNote} placeholder="Shave-day note (optional)" />
-          <Field value={group} onChangeText={setGroup} placeholder="Group (alternate with another step)" />
-
-          <Pill
-            label={busy ? "Saving…" : "Save"}
-            kind="accent"
-            disabled={!productId || busy}
-            onPress={() => void save()}
-          />
-          {existing && (
-            <Host matchContents colorScheme="dark">
-              <ConfirmationDialog
-                title="Delete this step?"
-                isPresented={confirm}
-                onIsPresentedChange={setConfirm}
-                titleVisibility="visible"
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  borderWidth: 1.5,
+                  borderColor: on ? t.label : t.tertiaryLabel,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <ConfirmationDialog.Trigger>
-                  <RNHostView matchContents>
-                    <Pill label="Delete step" kind="outline" onPress={() => setConfirm(true)} />
-                  </RNHostView>
-                </ConfirmationDialog.Trigger>
-                <ConfirmationDialog.Actions>
-                  <Button label="Keep" role="cancel" />
-                  <Button
-                    label="Delete"
-                    role="destructive"
-                    onPress={() => {
-                      void deleteStep({ id: existing._id });
-                      onClose();
-                    }}
-                  />
-                </ConfirmationDialog.Actions>
-              </ConfirmationDialog>
-            </Host>
-          )}
-          {product ? <Body size={11} color={t.mutedFg}>{product.brand ? `${product.brand} ${product.name}` : product.name}</Body> : null}
-        </ScrollView>
-      </RNHostView>
-    </BottomSheet>
+                {on ? (
+                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: t.label }} />
+                ) : null}
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <T variant="body" color={t.label}>{p.name}</T>
+                {p.brand ? <T variant="footnote">{p.brand}</T> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+        {products.length === 0 ? (
+          <View style={{ padding: space[16] }}>
+            <T variant="subhead">Add a product first.</T>
+          </View>
+        ) : null}
+      </View>
+
+      <T variant="footnote">Slot</T>
+      <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+        <Picker<Slot>
+          label="Slot"
+          selection={slot}
+          onSelectionChange={setSlot}
+          modifiers={[pickerStyle("segmented"), labelsHidden(), tint(t.accent)]}
+        >
+          <SwiftText modifiers={[tag("am")]}>Morning</SwiftText>
+          <SwiftText modifiers={[tag("pm")]}>Night</SwiftText>
+          <SwiftText modifiers={[tag("shower")]}>Shower</SwiftText>
+        </Picker>
+      </Host>
+
+      <Field value={howTo} onChangeText={setHowTo} placeholder="How to use it" />
+      <T variant="footnote">Days</T>
+      <WeekdayChips selected={days} onChange={setDays} />
+
+      <T variant="footnote">On a shave day</T>
+      <Host matchContents={{ vertical: true }} colorScheme="dark" seedColor={t.accent} style={{ minHeight: 36 }}>
+        <Picker<ShaveMode>
+          label="Shave day"
+          selection={shave}
+          onSelectionChange={setShave}
+          modifiers={[pickerStyle("segmented"), labelsHidden(), tint(t.accent)]}
+        >
+          <SwiftText modifiers={[tag("normal")]}>Usual</SwiftText>
+          <SwiftText modifiers={[tag("skip")]}>Skip</SwiftText>
+          <SwiftText modifiers={[tag("include")]}>Always</SwiftText>
+        </Picker>
+      </Host>
+      <Field value={shaveNote} onChangeText={setShaveNote} placeholder="Shave-day note (optional)" />
+      <Field value={group} onChangeText={setGroup} placeholder="Group (alternate with another step)" />
+
+      <Pill
+        label={busy ? "Saving..." : "Save"}
+        kind="primary"
+        disabled={!productId || busy}
+        onPress={() => void save()}
+      />
+      {existing ? (
+        <Host matchContents colorScheme="dark">
+          <ConfirmationDialog
+            title="Delete this step?"
+            isPresented={confirm}
+            onIsPresentedChange={setConfirm}
+            titleVisibility="visible"
+          >
+            <ConfirmationDialog.Trigger>
+              <RNHostView matchContents>
+                <Pill label="Delete step" kind="outline" onPress={() => setConfirm(true)} />
+              </RNHostView>
+            </ConfirmationDialog.Trigger>
+            <ConfirmationDialog.Actions>
+              <Button label="Keep" role="cancel" />
+              <Button
+                label="Delete"
+                role="destructive"
+                onPress={() => {
+                  void deleteStep({ id: existing._id });
+                  onClose();
+                }}
+              />
+            </ConfirmationDialog.Actions>
+          </ConfirmationDialog>
+        </Host>
+      ) : null}
+      {product ? (
+        <T variant="caption">{product.brand ? `${product.brand} ${product.name}` : product.name}</T>
+      ) : null}
+    </Sheet>
   );
 }
 
@@ -540,22 +553,24 @@ function ChipRow({ values, selected, onChange }: {
 }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space[8] }}>
       {values.map((v) => {
         const on = v === selected;
         return (
           <Pressable
             key={v}
             onPress={() => {
-              void Haptics.selectionAsync();
+              tap();
               onChange(v);
             }}
             style={{
-              borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8,
-              backgroundColor: on ? t.fg : t.muted,
+              borderRadius: radius.full,
+              paddingHorizontal: space[12],
+              paddingVertical: space[8],
+              backgroundColor: on ? t.label : t.elevated2,
             }}
           >
-            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ ...sf.medium }}>{v}</Body>
+            <T variant="footnote" color={on ? "#000000" : t.secondaryLabel} style={sf.medium}>{v}</T>
           </Pressable>
         );
       })}

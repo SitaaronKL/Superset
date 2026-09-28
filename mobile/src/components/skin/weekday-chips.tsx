@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
-import * as Haptics from "expo-haptics";
-import { Body } from "@/components/ui/kit";
-import { sf, useTheme } from "@/lib/theme";
+import { T } from "@/components/ui/kit";
+import { tap } from "@/lib/haptics";
+import { radius, sf, space, useTheme } from "@/lib/theme";
 import { WEEKDAYS } from "./types";
 
 export function WeekdayChips({ selected, onChange }: {
@@ -11,7 +11,7 @@ export function WeekdayChips({ selected, onChange }: {
   const t = useTheme();
   const set = new Set(selected);
   return (
-    <View style={{ flexDirection: "row", gap: 6 }}>
+    <View style={{ flexDirection: "row", gap: space[4] }}>
       {WEEKDAYS.map((d) => {
         const on = set.has(d.n);
         return (
@@ -21,22 +21,22 @@ export function WeekdayChips({ selected, onChange }: {
             accessibilityState={{ selected: on }}
             accessibilityLabel={d.label}
             onPress={() => {
-              void Haptics.selectionAsync();
+              tap();
               const next = on ? selected.filter((n) => n !== d.n) : [...selected, d.n].sort((a, b) => a - b);
               onChange(next);
             }}
             style={{
               flex: 1,
               height: 36,
-              borderRadius: 18,
+              borderRadius: radius.full,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: on ? t.fg : t.muted,
+              backgroundColor: on ? t.label : t.elevated2,
             }}
           >
-            <Body size={13} color={on ? "#000" : t.mutedFg} style={{ ...sf.semibold }}>
+            <T variant="footnote" color={on ? "#000000" : t.secondaryLabel} style={sf.semibold}>
               {d.label}
-            </Body>
+            </T>
           </Pressable>
         );
       })}

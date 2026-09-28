@@ -1,19 +1,20 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useAction, useMutation, useQuery } from "convex/react";
-import * as Haptics from "expo-haptics";
+import Animated, { useReducedMotion } from "react-native-reanimated";
 import { Host } from "@expo/ui";
 import { Button, ConfirmationDialog, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
 import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
-import { Body, Eyebrow, Field } from "@/components/ui/kit";
-import { useTheme } from "@/lib/theme";
-import { Group } from "./group";
+import { SuggestionCard } from "@/components/ui/suggestion-card";
+import { T, gap, motion, radius, space, squircle, type } from "@/components/ui/kit";
+import { palette, sf, useTheme } from "@/lib/theme";
+import { tap } from "@/lib/haptics";
 
-const CHIPS = [
-  "Am I shaving today?",
-  "What goes on tonight?",
-  "My neck stings, what now?",
+const SUGGESTIONS = [
+  { title: "Am I shaving today?", subtitle: "Based on your usual days" },
+  { title: "What goes on tonight?", subtitle: "Night steps and actives" },
+  { title: "My neck stings, what now?", subtitle: "Calm it without skipping" },
 ];
 
 export function AskSection({ dayKey }: { dayKey: string }) {
@@ -32,7 +33,7 @@ export function AskSection({ dayKey }: { dayKey: string }) {
     setBusy(true);
     setError(null);
     setText("");
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    tap();
     try {
       await ask({ question: q, dayKey });
     } catch {
@@ -43,12 +44,12 @@ export function AskSection({ dayKey }: { dayKey: string }) {
   };
 
   const list = asks ?? [];
+  const empty = list.length === 0 && !busy;
 
   return (
-    <View style={{ gap: 10 }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", paddingHorizontal: 4 }}>
-        <Eyebrow style={{ flex: 1 }}>Ask</Eyebrow>
-        {list.length > 0 && (
+    <View style={{ gap: gap.group }}>
+      {list.length > 0 ? (
+        <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
           <Host matchContents colorScheme="dark" style={{ height: 22 }}>
             <ConfirmationDialog
               title="Clear questions?"
@@ -59,7 +60,7 @@ export function AskSection({ dayKey }: { dayKey: string }) {
               <ConfirmationDialog.Trigger>
                 <RNHostView matchContents>
                   <Pressable onPress={() => setClearOpen(true)} hitSlop={8}>
-                    <Body size={13} color={t.mutedFg}>Clear</Body>
+                    <T variant="footnote">Clear</T>
                   </Pressable>
                 </RNHostView>
               </ConfirmationDialog.Trigger>
@@ -72,72 +73,138 @@ export function AskSection({ dayKey }: { dayKey: string }) {
               </ConfirmationDialog.Actions>
             </ConfirmationDialog>
           </Host>
-        )}
-      </View>
-
-      <Group style={{ padding: 12, gap: 10, overflow: "visible" }}>
-        {list.slice(-6).map((a) => (
-          <View key={a._id} style={{ gap: 6 }}>
-            <View style={{ alignSelf: "flex-end", maxWidth: "88%", backgroundColor: t.accentTint, borderRadius: 18, borderCurve: "continuous", paddingHorizontal: 12, paddingVertical: 8 }}>
-              <Body size={15}>{a.question}</Body>
-            </View>
-            <View style={{ alignSelf: "flex-start", maxWidth: "88%", backgroundColor: t.muted, borderRadius: 18, borderCurve: "continuous", paddingHorizontal: 12, paddingVertical: 8 }}>
-              <Body size={15} color={t.mutedFg}>{a.answer}</Body>
-            </View>
-          </View>
-        ))}
-        {busy && (
-          <View style={{ alignSelf: "flex-start", backgroundColor: t.muted, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Body size={15} color={t.mutedFg}>Thinking…</Body>
-          </View>
-        )}
-        {error && <Body size={13} color={t.destructive}>{error}</Body>}
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          {CHIPS.map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => void send(c)}
-              disabled={busy}
-              style={({ pressed }) => ({
-                borderRadius: 16,
-                borderCurve: "continuous",
-                backgroundColor: t.muted,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                opacity: pressed || busy ? 0.6 : 1,
-              })}
-            >
-              <Body size={13} color={t.mutedFg}>{c}</Body>
-            </Pressable>
-          ))}
         </View>
+      ) : null}
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Field
-            value={text}
-            onChangeText={setText}
-            placeholder="Ask about your skin"
-            returnKeyType="send"
-            onSubmitEditing={() => void send(text)}
-            editable={!busy}
-            style={{ flex: 1 }}
-          />
+      {list.slice(-6).map((a) => (
+        <View key={a._id} style={{ gap: space[12] }}>
+          <View
+            style={{
+              alignSelf: "flex-end",
+              maxWidth: "80%",
+              backgroundColor: t.elevated2,
+              borderRadius: 20,
+              ...squircle,
+              paddingHorizontal: space[16],
+              paddingVertical: space[8],
+            }}
+          >
+            <T variant="body" color={t.label} selectable>{a.question}</T>
+          </View>
+          <View style={{ alignSelf: "stretch" }}>
+            <T variant="body" color={t.label} selectable>{a.answer}</T>
+          </View>
+        </View>
+      ))}
+
+      {busy ? <ThinkingDot /> : null}
+      {error ? <T variant="footnote" color={t.destructive} selectable>{error}</T> : null}
+
+      {empty ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: gap.row, paddingRight: space[8] }}
+        >
+          {SUGGESTIONS.map((s) => (
+            <SuggestionCard
+              key={s.title}
+              title={s.title}
+              subtitle={s.subtitle}
+              disabled={busy}
+              onPress={() => void send(s.title)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: t.elevated,
+          borderRadius: radius.sheet,
+          ...squircle,
+          minHeight: 52,
+          paddingLeft: space[16],
+          paddingRight: space[8],
+          paddingVertical: space[4],
+          gap: space[8],
+        }}
+      >
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Ask anything"
+          placeholderTextColor={t.tertiaryLabel}
+          returnKeyType="send"
+          onSubmitEditing={() => void send(text)}
+          editable={!busy}
+          style={{
+            flex: 1,
+            minHeight: 40,
+            paddingVertical: space[8],
+            color: t.label,
+            fontSize: type.body.fontSize,
+            lineHeight: type.body.lineHeight,
+            letterSpacing: type.body.letterSpacing,
+            ...sf.regular,
+          }}
+        />
+        {text.trim() ? (
           <Pressable
             accessibilityLabel="Send"
-            disabled={!text.trim() || busy}
+            disabled={busy}
             onPress={() => void send(text)}
             style={({ pressed }) => ({
-              width: 44, height: 44, borderRadius: 22, backgroundColor: t.fg,
-              alignItems: "center", justifyContent: "center",
-              opacity: !text.trim() || busy ? 0.35 : pressed ? 0.75 : 1,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: t.label,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: busy ? 0.35 : pressed ? 0.78 : 1,
               transform: [{ scale: pressed ? 0.97 : 1 }],
             })}
           >
-            <SymbolView name="arrow.up" tintColor="#000" weight="bold" style={{ width: 16, height: 16 }} />
+            <SymbolView name="arrow.up" tintColor={palette.bg} weight="semibold" size={16} />
           </Pressable>
-        </View>
-      </Group>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function ThinkingDot() {
+  const t = useTheme();
+  const reduced = useReducedMotion();
+  return (
+    <View
+      accessibilityLabel="Thinking"
+      style={{ flexDirection: "row", alignItems: "center", paddingVertical: space[8] }}
+    >
+      <Animated.View
+        style={{
+          width: space[8],
+          height: space[8],
+          borderRadius: space[8] / 2,
+          backgroundColor: t.secondaryLabel,
+          opacity: reduced ? 0.45 : 0.3,
+          ...(reduced
+            ? {}
+            : {
+                animationName: {
+                  from: { opacity: 0.28 },
+                  to: { opacity: 0.92 },
+                },
+                animationDuration: motion.duration.slow,
+                animationIterationCount: "infinite" as const,
+                animationDirection: "alternate" as const,
+                animationTimingFunction: "ease-in-out" as const,
+              }),
+        }}
+      />
     </View>
   );
 }

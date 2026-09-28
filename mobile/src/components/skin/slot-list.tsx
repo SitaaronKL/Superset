@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import { SymbolView } from "expo-symbols";
-import { Body, Eyebrow, Num } from "@/components/ui/kit";
-import { sf, useTheme } from "@/lib/theme";
+import { T } from "@/components/ui/kit";
+import { success, tap } from "@/lib/haptics";
+import { radius, space, squircle, sf, useTheme } from "@/lib/theme";
 import { CheckCircle } from "./check-circle";
-import { Group, Hairline } from "./group";
 import { productParts, SLOTS, type PlannedRow } from "./types";
 
 export function SlotList({ steps, products, onToggle, onComplete }: {
@@ -16,12 +12,12 @@ export function SlotList({ steps, products, onToggle, onComplete }: {
   onComplete: (ids: string[]) => void;
 }) {
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: space[16] }}>
       {SLOTS.map((slot) => {
         const rows = steps.filter((s) => s.slot === slot.id);
         if (rows.length === 0) return null;
         return (
-          <SlotSection
+          <SlotCard
             key={slot.id}
             title={slot.label}
             rows={rows}
@@ -35,7 +31,7 @@ export function SlotList({ steps, products, onToggle, onComplete }: {
   );
 }
 
-function SlotSection({ title, rows, products, onToggle, onComplete }: {
+function SlotCard({ title, rows, products, onToggle, onComplete }: {
   title: string;
   rows: PlannedRow[];
   products: { name: string; brand?: string | null }[];
@@ -43,89 +39,88 @@ function SlotSection({ title, rows, products, onToggle, onComplete }: {
   onComplete: (ids: string[]) => void;
 }) {
   const t = useTheme();
-  const reduced = useReducedMotion();
-  const [opened, setOpened] = useState(false);
   const doneCount = rows.filter((r) => r.done).length;
   const allDone = doneCount === rows.length && rows.length > 0;
-  const collapsed = allDone && !opened;
+  const pct = rows.length === 0 ? 0 : doneCount / rows.length;
 
   return (
-    <Animated.View layout={reduced ? undefined : LinearTransition.duration(220)} style={{ gap: 8 }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", paddingHorizontal: 4 }}>
-        <Eyebrow style={{ flex: 1 }}>{title}</Eyebrow>
-        <Num size={12} color={t.mutedFg}>{doneCount} of {rows.length}</Num>
-        {!allDone && (
+    <View
+      style={{
+        backgroundColor: t.elevated,
+        borderRadius: radius.card,
+        ...squircle,
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space[8],
+          paddingHorizontal: space[16],
+          paddingTop: space[16],
+          paddingBottom: space[8],
+        }}
+      >
+        <T variant="headline" style={{ flex: 1 }}>{title}</T>
+        {!allDone ? (
           <Pressable
             onPress={() => {
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              success();
               onComplete(rows.map((r) => r.id));
             }}
             hitSlop={8}
-            style={{ marginLeft: 12 }}
           >
-            <Body size={13} color={t.accent} style={{ ...sf.semibold }}>Done all</Body>
+            <T variant="footnote" color={t.accent} style={sf.semibold}>Done all</T>
           </Pressable>
-        )}
+        ) : null}
+        <T variant="subhead">{doneCount} of {rows.length}</T>
       </View>
 
-      <Group>
-        {collapsed ? (
-          <Pressable
-            onPress={() => setOpened(true)}
-            accessibilityLabel={`${title} complete. Tap to expand.`}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 16,
-              backgroundColor: pressed ? t.muted : "transparent",
-            })}
-          >
-            <View
-              style={{
-                width: 26, height: 26, borderRadius: 13, backgroundColor: t.accent,
-                alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <SymbolView name="checkmark" tintColor={t.accentFg} weight="bold" style={{ width: 12, height: 12 }} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Body size={17} style={{ ...sf.semibold }}>{title} done</Body>
-              <Body size={13} color={t.mutedFg}>{rows.length} {rows.length === 1 ? "step" : "steps"}</Body>
-            </View>
-          </Pressable>
-        ) : (
-          rows.map((row, i) => (
-            <View key={row.id}>
-              {i > 0 && <Hairline inset={52} />}
-              <StepRow row={row} index={i + 1} products={products} onToggle={() => onToggle(row.id)} />
-            </View>
-          ))
-        )}
-      </Group>
-      {allDone && opened && (
-        <Pressable onPress={() => setOpened(false)} style={{ alignSelf: "center", paddingVertical: 4 }}>
-          <Body size={13} color={t.mutedFg}>Collapse</Body>
-        </Pressable>
-      )}
-    </Animated.View>
+      {rows.map((row) => (
+        <StepRow
+          key={row.id}
+          row={row}
+          products={products}
+          onToggle={() => onToggle(row.id)}
+        />
+      ))}
+
+      <View style={{ paddingHorizontal: space[16], paddingTop: space[8], paddingBottom: space[16] }}>
+        <View
+          style={{
+            height: 3,
+            borderRadius: 2,
+            backgroundColor: t.elevated2,
+            overflow: "hidden",
+          }}
+        >
+          <View
+            style={{
+              width: `${Math.round(pct * 100)}%`,
+              height: 3,
+              backgroundColor: t.label,
+            }}
+          />
+        </View>
+      </View>
+    </View>
   );
 }
 
-function StepRow({ row, index, products, onToggle }: {
+function StepRow({ row, products, onToggle }: {
   row: PlannedRow;
-  index: number;
   products: { name: string; brand?: string | null }[];
   onToggle: () => void;
 }) {
   const t = useTheme();
   const { name, brand } = productParts(row.productName, products);
+  const detail = [brand, row.howTo].filter(Boolean).join(" · ");
   return (
     <Pressable
       onPress={() => {
-        if (!row.done) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!row.done) success();
+        else tap();
         onToggle();
       }}
       accessibilityRole="checkbox"
@@ -134,28 +129,25 @@ function StepRow({ row, index, products, onToggle }: {
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "flex-start",
-        gap: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        opacity: row.done ? 0.45 : 1,
-        backgroundColor: pressed ? t.muted : "transparent",
+        gap: space[12],
+        paddingHorizontal: space[16],
+        paddingVertical: space[12],
+        backgroundColor: pressed ? t.elevated2 : "transparent",
       })}
     >
-      <Num size={13} color={t.mutedFg} style={{ width: 18, marginTop: 6, textAlign: "right" }}>{index}</Num>
-      <View style={{ flex: 1, gap: 2, paddingTop: 2 }}>
-        <Body size={17} style={{ ...sf.medium }}>{name}</Body>
-        {brand ? <Body size={13} color={t.mutedFg}>{brand}</Body> : null}
-        {row.howTo ? <Body size={15} color={t.mutedFg}>{row.howTo}</Body> : null}
-        {row.note ? (
-          <Body size={15} color={t.accent} style={{ ...sf.medium }}>{row.note}</Body>
-        ) : null}
-      </View>
       <CheckCircle
         checked={row.done}
         onToggle={onToggle}
         interactive={false}
         label={`Mark ${name} ${row.done ? "not done" : "done"}`}
       />
+      <View style={{ flex: 1, gap: 2 }}>
+        <T variant="body" color={row.done ? t.secondaryLabel : t.label}>{name}</T>
+        {detail ? <T variant="subhead">{detail}</T> : null}
+        {row.note ? (
+          <T variant="subhead" color={t.accent}>{row.note}</T>
+        ) : null}
+      </View>
     </Pressable>
   );
 }

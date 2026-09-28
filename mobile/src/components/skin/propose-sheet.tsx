@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, View, useWindowDimensions } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, View } from "react-native";
 import { useAction, useMutation } from "convex/react";
 import * as ImagePicker from "expo-image-picker";
-import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { BottomSheet, Host } from "@expo/ui";
+import { Host } from "@expo/ui";
 import { Button, ConfirmationDialog, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
-import { presentationBackground } from "@expo/ui/swift-ui/modifiers";
 import { SymbolView } from "expo-symbols";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Body, Display, Eyebrow, Field, Pill } from "@/components/ui/kit";
-import { sf, palette, useTheme } from "@/lib/theme";
+import { Field, Pill, Row, Section, T, gap, space, squircle } from "@/components/ui/kit";
+import { Sheet } from "@/components/ui/sheet";
+import { useTheme } from "@/lib/theme";
+import { success } from "@/lib/haptics";
 import { todayKey } from "@/lib/day";
+import { SheetNav } from "./sheet-nav";
 import { uploadAsset } from "./upload";
-import { Group, Hairline } from "./group";
 import { SLOTS, type Proposal } from "./types";
 
 export function ProposeSheet({ open, initialPath, onClose }: {
@@ -24,8 +23,6 @@ export function ProposeSheet({ open, initialPath, onClose }: {
   onClose: () => void;
 }) {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
   const propose = useAction(api.skin.propose);
   const applyRoutine = useMutation(api.skin.applyRoutine);
   const generateUploadUrl = useMutation(api.skin.generateUploadUrl);
@@ -52,9 +49,6 @@ export function ProposeSheet({ open, initialPath, onClose }: {
     setConfirmOpen(false);
   }, [open, initialPath]);
 
-  const sheetWidth = width - 32;
-  const sheetHeight = Math.max(420, Math.round(height * 0.92) - 36);
-
   const reset = () => {
     setPath(initialPath ?? "choose");
     setText("");
@@ -64,6 +58,11 @@ export function ProposeSheet({ open, initialPath, onClose }: {
     setError(null);
     setProposal(null);
     setConfirmOpen(false);
+  };
+
+  const dismiss = () => {
+    reset();
+    onClose();
   };
 
   const pickFace = async () => {
@@ -95,7 +94,7 @@ export function ProposeSheet({ open, initialPath, onClose }: {
       });
       setProposal(next);
       setPath("review");
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      success();
     } catch {
       setError("Couldn't build that routine. Try again, or paste a bit more detail.");
     } finally {
@@ -106,184 +105,204 @@ export function ProposeSheet({ open, initialPath, onClose }: {
   const apply = async () => {
     if (!proposal) return;
     await applyRoutine({ proposal, startDate: todayKey() });
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    success();
     reset();
     onClose();
   };
 
+  const title =
+    path === "import" ? "Paste my routine"
+      : path === "recommend" ? "Recommend one"
+        : path === "review" ? "Review"
+          : "Your routine";
+  const nested = path === "import" || path === "recommend";
+
   return (
-    <BottomSheet
+    <Sheet
       isPresented={open}
-      onDismiss={() => {
-        reset();
-        onClose();
-      }}
-      snapPoints={[{ fraction: 0.92 }]}
-      modifiers={[presentationBackground(palette.bg)]}
+      onDismiss={dismiss}
+      scroll={path !== "choose"}
+      fraction={0.92}
     >
-      <RNHostView matchContents>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ width: sheetWidth, height: sheetHeight, backgroundColor: t.bg }}
-          contentContainerStyle={{ gap: 14, paddingBottom: insets.bottom + 12 }}
-        >
-          {path === "choose" && (
-            <>
-              <Display size={26}>Your routine</Display>
-              <Body size={15} color={t.mutedFg}>
-                Paste what you already use, or get a simple starter from your goals.
-              </Body>
-              <Pressable
-                onPress={() => setPath("import")}
-                style={({ pressed }) => ({
-                  backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous",
-                  padding: 18, gap: 6, opacity: pressed ? 0.7 : 1,
+      <SheetNav
+        title={title}
+        onClose={dismiss}
+        onBack={nested ? () => { setError(null); setPath("choose"); } : undefined}
+      />
+
+      {path === "choose" ? (
+        <View style={{ gap: gap.group }}>
+          <T variant="subhead">
+            Paste what you already use, or get a simple starter from your goals.
+          </T>
+          <View style={{ flexDirection: "row", gap: space[12] }}>
+            <ChoiceTile
+              symbol="square.and.pencil"
+              title="Paste my routine"
+              subtitle="Keep your products and order."
+              onPress={() => setPath("import")}
+            />
+            <ChoiceTile
+              symbol="sparkles"
+              title="Recommend one"
+              subtitle="A calm starter around your goals."
+              onPress={() => setPath("recommend")}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {path === "import" ? (
+        <View style={{ gap: gap.group }}>
+          <Field
+            value={text}
+            onChangeText={setText}
+            placeholder="Morning, night, shower. Product names and how you use them."
+            multiline
+            style={{ height: 180, paddingTop: space[12], textAlignVertical: "top" }}
+          />
+          <Pill
+            label={busy ? "Reading..." : "Turn this into a routine"}
+            kind="primary"
+            disabled={!text.trim() || busy}
+            onPress={() => void run("import")}
+          />
+          {error ? <T variant="footnote" color={t.destructive} selectable>{error}</T> : null}
+        </View>
+      ) : null}
+
+      {path === "recommend" ? (
+        <View style={{ gap: gap.group }}>
+          <Field
+            value={text}
+            onChangeText={setText}
+            placeholder="Goals. Oil, dark spots, shaving, body acne..."
+            multiline
+            style={{ height: 120, paddingTop: space[12], textAlignVertical: "top" }}
+          />
+          <Pressable
+            onPress={() => void pickFace()}
+            style={({ pressed }) => ({
+              height: 88,
+              borderRadius: 18,
+              ...squircle,
+              backgroundColor: t.elevated2,
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: space[8],
+              opacity: pressed ? 0.78 : 1,
+            })}
+          >
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+            ) : (
+              <>
+                <SymbolView name="camera" tintColor={t.secondaryLabel} size={18} />
+                <T variant="subhead">Optional face photo</T>
+              </>
+            )}
+          </Pressable>
+          <Pill
+            label={busy ? "Building..." : "Build a routine"}
+            kind="primary"
+            disabled={busy}
+            onPress={() => void run("recommend")}
+          />
+          {error ? <T variant="footnote" color={t.destructive} selectable>{error}</T> : null}
+        </View>
+      ) : null}
+
+      {path === "review" && proposal ? (
+        <View style={{ gap: gap.group }}>
+          <T variant="body" selectable>{proposal.summary}</T>
+          <Section header="Products">
+            {proposal.products.map((p) => (
+              <Row
+                key={p.key}
+                title={p.name}
+                subtitle={[p.brand, p.kind, p.zone, p.why].filter(Boolean).join(" · ")}
+              />
+            ))}
+          </Section>
+          {SLOTS.map((slot) => {
+            const rows = proposal.steps.filter((s) => s.slot === slot.id).sort((a, b) => a.order - b.order);
+            if (rows.length === 0) return null;
+            const byKey = new Map(proposal.products.map((p) => [p.key, p]));
+            return (
+              <Section key={slot.id} header={slot.label}>
+                {rows.map((s) => {
+                  const p = byKey.get(s.product);
+                  return (
+                    <Row
+                      key={`${s.product}-${s.order}`}
+                      title={p?.name ?? s.product}
+                      subtitle={s.howTo}
+                    />
+                  );
                 })}
-              >
-                <Body size={17} style={{ ...sf.semibold }}>Paste my routine</Body>
-                <Body size={15} color={t.mutedFg}>Keep your products and order. We turn the note into steps.</Body>
-              </Pressable>
-              <Pressable
-                onPress={() => setPath("recommend")}
-                style={({ pressed }) => ({
-                  backgroundColor: t.card, borderRadius: 22, borderCurve: "continuous",
-                  padding: 18, gap: 6, opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Body size={17} style={{ ...sf.semibold }}>Recommend one for me</Body>
-                <Body size={15} color={t.mutedFg}>Cleanser, moisturizer, SPF, and at most two night actives.</Body>
-              </Pressable>
-            </>
-          )}
+              </Section>
+            );
+          })}
+          <Host matchContents colorScheme="dark">
+            <ConfirmationDialog
+              title="Replace your routine?"
+              isPresented={confirmOpen}
+              onIsPresentedChange={setConfirmOpen}
+              titleVisibility="visible"
+            >
+              <ConfirmationDialog.Trigger>
+                <RNHostView matchContents>
+                  <Pill label="Use this routine" kind="primary" onPress={() => setConfirmOpen(true)} />
+                </RNHostView>
+              </ConfirmationDialog.Trigger>
+              <ConfirmationDialog.Message>
+                <SwiftText>This replaces the current routine. Old products are archived, not deleted.</SwiftText>
+              </ConfirmationDialog.Message>
+              <ConfirmationDialog.Actions>
+                <Button label="Keep current" role="cancel" />
+                <Button label="Use this routine" role="destructive" onPress={() => void apply()} />
+              </ConfirmationDialog.Actions>
+            </ConfirmationDialog>
+          </Host>
+          <Pressable
+            onPress={() => { setProposal(null); setPath("choose"); }}
+            hitSlop={8}
+            style={{ alignSelf: "center", paddingVertical: space[8] }}
+          >
+            <T variant="subhead">Start over</T>
+          </Pressable>
+        </View>
+      ) : null}
+    </Sheet>
+  );
+}
 
-          {path === "import" && (
-            <>
-              <Display size={26}>Paste my routine</Display>
-              <Field
-                value={text}
-                onChangeText={setText}
-                placeholder="Morning, night, shower. Product names and how you use them."
-                multiline
-                style={{ height: 180, paddingTop: 12, textAlignVertical: "top" }}
-              />
-              <Pill
-                label={busy ? "Reading…" : "Turn this into a routine"}
-                kind="accent"
-                disabled={!text.trim() || busy}
-                onPress={() => void run("import")}
-              />
-              {error && <Body size={13} color={t.destructive}>{error}</Body>}
-              <Pill label="Back" kind="outline" onPress={() => setPath("choose")} />
-            </>
-          )}
-
-          {path === "recommend" && (
-            <>
-              <Display size={26}>Recommend one</Display>
-              <Field
-                value={text}
-                onChangeText={setText}
-                placeholder="Goals. Oil, dark spots, shaving, body acne…"
-                multiline
-                style={{ height: 120, paddingTop: 12, textAlignVertical: "top" }}
-              />
-              <Pressable
-                onPress={() => void pickFace()}
-                style={{
-                  height: 88, borderRadius: 18, borderCurve: "continuous",
-                  backgroundColor: t.card, overflow: "hidden",
-                  alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10,
-                }}
-              >
-                {photoUri ? (
-                  <Image source={{ uri: photoUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-                ) : (
-                  <>
-                    <SymbolView name="camera" tintColor={t.mutedFg} style={{ width: 18, height: 18 }} />
-                    <Body size={15} color={t.mutedFg}>Optional face photo</Body>
-                  </>
-                )}
-              </Pressable>
-              <Pill
-                label={busy ? "Building…" : "Build a routine"}
-                kind="accent"
-                disabled={busy}
-                onPress={() => void run("recommend")}
-              />
-              {error && <Body size={13} color={t.destructive}>{error}</Body>}
-              <Pill label="Back" kind="outline" onPress={() => setPath("choose")} />
-            </>
-          )}
-
-          {path === "review" && proposal && (
-            <>
-              <Display size={26}>Review</Display>
-              <Body size={15}>{proposal.summary}</Body>
-              <Eyebrow>Products</Eyebrow>
-              <Group>
-                {proposal.products.map((p, i) => (
-                  <View key={p.key}>
-                    {i > 0 && <Hairline />}
-                    <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 2 }}>
-                      <Body size={17} style={{ ...sf.medium }}>{p.name}</Body>
-                      <Body size={13} color={t.mutedFg}>
-                        {[p.brand, p.kind, p.zone].filter(Boolean).join(" · ")}
-                      </Body>
-                      {p.why ? <Body size={13} color={t.mutedFg}>{p.why}</Body> : null}
-                    </View>
-                  </View>
-                ))}
-              </Group>
-              {SLOTS.map((slot) => {
-                const rows = proposal.steps.filter((s) => s.slot === slot.id).sort((a, b) => a.order - b.order);
-                if (rows.length === 0) return null;
-                const byKey = new Map(proposal.products.map((p) => [p.key, p]));
-                return (
-                  <View key={slot.id} style={{ gap: 8 }}>
-                    <Eyebrow>{slot.label}</Eyebrow>
-                    <Group>
-                      {rows.map((s, i) => {
-                        const p = byKey.get(s.product);
-                        return (
-                          <View key={`${s.product}-${s.order}`}>
-                            {i > 0 && <Hairline />}
-                            <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 2 }}>
-                              <Body size={17}>{p?.name ?? s.product}</Body>
-                              {s.howTo ? <Body size={13} color={t.mutedFg}>{s.howTo}</Body> : null}
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </Group>
-                  </View>
-                );
-              })}
-              <Host matchContents colorScheme="dark" seedColor={t.accent}>
-                <ConfirmationDialog
-                  title="Replace your routine?"
-                  isPresented={confirmOpen}
-                  onIsPresentedChange={setConfirmOpen}
-                  titleVisibility="visible"
-                >
-                  <ConfirmationDialog.Trigger>
-                    <RNHostView matchContents>
-                      <Pill label="Use this routine" kind="accent" onPress={() => setConfirmOpen(true)} />
-                    </RNHostView>
-                  </ConfirmationDialog.Trigger>
-                  <ConfirmationDialog.Message>
-                    <SwiftText>This replaces the current routine. Old products are archived, not deleted.</SwiftText>
-                  </ConfirmationDialog.Message>
-                  <ConfirmationDialog.Actions>
-                    <Button label="Keep current" role="cancel" />
-                    <Button label="Use this routine" role="destructive" onPress={() => void apply()} />
-                  </ConfirmationDialog.Actions>
-                </ConfirmationDialog>
-              </Host>
-              <Pill label="Start over" kind="outline" onPress={() => { setProposal(null); setPath("choose"); }} />
-            </>
-          )}
-        </ScrollView>
-      </RNHostView>
-    </BottomSheet>
+function ChoiceTile({ symbol, title, subtitle, onPress }: {
+  symbol: "square.and.pencil" | "sparkles";
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        backgroundColor: t.elevated2,
+        borderRadius: 18,
+        ...squircle,
+        padding: space[16],
+        gap: space[8],
+        minHeight: 140,
+        opacity: pressed ? 0.78 : 1,
+      })}
+    >
+      <SymbolView name={symbol} tintColor={t.label} size={22} />
+      <T variant="headline">{title}</T>
+      <T variant="subhead">{subtitle}</T>
+    </Pressable>
   );
 }

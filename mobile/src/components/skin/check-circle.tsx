@@ -6,12 +6,15 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
+import { success, tap } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
-// Completing a step is occasional, not a 100x/day toggle: a short spring plus
-// a success haptic is the feedback. Reduced motion keeps the fill, drops the scale.
+// ChatGPT research-plan check: fills white with a black check. Spring + haptic
+// on complete. Reduced motion keeps the fill, drops the scale.
+
+const FILL = "#ffffff";
+const MARK = "#000000";
 
 export function CheckCircle({ checked, onToggle, label, interactive = true }: {
   checked: boolean;
@@ -46,7 +49,7 @@ export function CheckCircle({ checked, onToggle, label, interactive = true }: {
         height: 26,
         borderRadius: 13,
         borderWidth: checked ? 0 : 1.5,
-        borderColor: t.border,
+        borderColor: t.tertiaryLabel,
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -58,14 +61,14 @@ export function CheckCircle({ checked, onToggle, label, interactive = true }: {
             width: 26,
             height: 26,
             borderRadius: 13,
-            backgroundColor: t.accent,
+            backgroundColor: FILL,
           },
           fillStyle,
         ]}
       />
-      {checked && (
-        <SymbolView name="checkmark" tintColor={t.accentFg} weight="bold" style={{ width: 12, height: 12 }} />
-      )}
+      {checked ? (
+        <SymbolView name="checkmark" tintColor={MARK} weight="bold" size={12} />
+      ) : null}
     </Animated.View>
   );
 
@@ -89,8 +92,8 @@ export function CheckCircle({ checked, onToggle, label, interactive = true }: {
       accessibilityLabel={label}
       hitSlop={8}
       onPress={() => {
-        if (!checked) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!checked) success();
+        else tap();
         onToggle();
       }}
       style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}
