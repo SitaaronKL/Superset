@@ -12,14 +12,16 @@ export function SparkLine({ values, width, height = 56, refValue }: {
   const all = refValue !== undefined ? [...values, refValue] : values;
   const min = Math.min(...all);
   const max = Math.max(...all);
-  const span = max - min || 1;
+  const span = max - min;
 
+  // A flat series sits on the vertical center, not the floor.
+  const yOf = (v: number) => span === 0 ? height / 2 : pad + (1 - (v - min) / span) * (height - pad * 2);
   const pts = values.map((v, i) => {
     const x = pad + (i / (values.length - 1)) * (width - pad * 2);
-    const y = pad + (1 - (v - min) / span) * (height - pad * 2);
+    const y = yOf(v);
     return { x, y };
   });
-  const refY = refValue !== undefined ? pad + (1 - (refValue - min) / span) * (height - pad * 2) : null;
+  const refY = refValue !== undefined ? yOf(refValue) : null;
   const last = pts[pts.length - 1];
 
   return (

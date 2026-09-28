@@ -35,8 +35,8 @@ const shortDate = (d: number) => new Date(d).toLocaleDateString(undefined, { mon
 const FATIGUE_LABEL = { ez: "Easy", struggle: "Hard", failure: "Fail", tooTired: "Tired" } as const;
 type FatigueId = keyof typeof FATIGUE_LABEL;
 
-const HEADER_EXTRA = space[40] + space[16];
-const HEADER_FADE = space[56] + space[16];
+const HEADER_EXTRA = space[40] + space[32];
+const HEADER_FADE = space[56] + space[24];
 
 function sessionCountLabel(n: number) {
   return n === 1 ? "1 session" : `${n} sessions`;
@@ -402,10 +402,13 @@ function TrendSheet({ trend, onClose }: {
             />
             <Stat label="Best est. 1RM" value={data.bestE1RM} style={{ flex: 1 }} />
           </View>
+          {/* Est. 1RM moves with reps too, so it shows progress a flat top weight hides. */}
+          <T variant="footnote">Estimated 1RM by session</T>
           <SparkLine
-            values={data.points.map((p) => p.topWeight)}
+            values={data.points.map((p) => p.topE1RM)}
             width={contentWidth}
-            refValue={Math.max(...data.points.map((p) => p.topWeight))}
+            height={72}
+            refValue={data.bestE1RM}
           />
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <T variant="caption">{shortDate(data.points[0].date)}</T>
