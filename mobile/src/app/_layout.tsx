@@ -71,6 +71,7 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: palette.bg },
               }}
             />
+            <Stack.Screen name="skin" />
           </Stack>
         </View>
       </ThemeProvider>
