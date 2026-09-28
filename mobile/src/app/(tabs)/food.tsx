@@ -17,14 +17,13 @@ import {
   Skeleton, T, gap, motion, radius, space, squircle, type,
 } from "@/components/ui/kit";
 import { Sheet, useSheetContentWidth } from "@/components/ui/sheet";
-import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
+import { Screen, ScreenFades, useScreenInsets, TAB_BAR_TOP } from "@/components/screen";
 import { WeekDots } from "@/components/week-dots";
 import { SparkLine } from "@/components/spark-line";
 import { success, tap } from "@/lib/haptics";
 import { sf, useTheme } from "@/lib/theme";
 
 const DAY = 24 * 60 * 60 * 1000;
-const TAB_BAR = 84; // matches screen.tsx so Log food sits above the tab bar
 const TILE_RADIUS = 18;
 const dayKey = (ts: number) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -171,7 +170,7 @@ export default function FoodScreen() {
         icon="camera.fill"
         label="Log food"
         onPress={() => setAddOpen(true)}
-        bottom={insets.bottom + TAB_BAR + space[8]}
+        bottom={TAB_BAR_TOP + space[12]}
       />
 
       <AddFoodSheet open={addOpen} onClose={() => setAddOpen(false)} />

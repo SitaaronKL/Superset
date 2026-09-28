@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Host, RNHostView } from "@expo/ui";
 import { Button, ConfirmationDialog, Picker, Text as SwiftText } from "@expo/ui/swift-ui";
 import { labelsHidden, pickerStyle, tag, tint } from "@expo/ui/swift-ui/modifiers";
-import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
+import { Screen, ScreenFades, useScreenInsets, TAB_BAR_TOP } from "@/components/screen";
 import { Sheet } from "@/components/ui/sheet";
 import { TrainDayRow, symbolForDay } from "@/components/ui/train-day-row";
 import { useMutation, useQuery } from "convex/react";
@@ -42,8 +42,6 @@ const FATIGUE = [
 type FatigueId = (typeof FATIGUE)[number]["id"];
 
 const SET_LAYOUT = LinearTransition.duration(motion.duration.base);
-/** Matches `TAB_BAR` in screen.tsx so the floating action sits above the tab bar. */
-const TAB_BAR = 84;
 
 const exerciseCount = (n: number) => (n === 1 ? "1 exercise" : `${n} exercises`);
 
@@ -216,7 +214,7 @@ function TrainHome({ days, monthName }: { days: Doc<"programDays">[]; monthName:
       <FloatingAction
         icon="plus"
         label={pickLabel}
-        bottom={insets.bottom + TAB_BAR + space[8]}
+        bottom={TAB_BAR_TOP + space[12]}
         onPress={() => setPickOpen(true)}
       />
 

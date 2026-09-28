@@ -10,13 +10,18 @@ import { palette, space } from "@/lib/theme";
 // and under the floating tab bar at the bottom. Instead of solid black bars,
 // each edge gets a blur that fades out toward the content.
 
-const TAB_BAR = 84;
+/**
+ * Distance from the bottom of the screen to the top of the floating tab bar,
+ * home-indicator area included (measured on iPhone 17 Pro Max, icons only).
+ * Never add the safe-area bottom inset on top of this; that double counts.
+ */
+export const TAB_BAR_TOP = 84;
 
 /** Content padding so the first and last rows start clear of the edges. */
 export function useScreenInsets(extraTop = 0, opts?: { tabBar?: boolean }) {
   const insets = useSafeAreaInsets();
-  const tab = opts?.tabBar === false ? 0 : TAB_BAR;
-  return { top: insets.top + space[12] + extraTop, bottom: insets.bottom + tab + space[24] };
+  const bottom = opts?.tabBar === false ? insets.bottom + space[24] : TAB_BAR_TOP + space[24];
+  return { top: insets.top + space[12] + extraTop, bottom };
 }
 
 /** Page root: the page color, edge to edge. Put <ScreenFades /> right after the scroll content. */
@@ -34,7 +39,7 @@ export function ScreenFades({ topFade = 28, bottom = true }: {
   return (
     <>
       <EdgeFade edge="top" height={insets.top + topFade} />
-      {bottom && <EdgeFade edge="bottom" height={insets.bottom + TAB_BAR + space[16]} />}
+      {bottom && <EdgeFade edge="bottom" height={TAB_BAR_TOP + space[16]} />}
     </>
   );
 }
