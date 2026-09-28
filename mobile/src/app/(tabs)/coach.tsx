@@ -3,6 +3,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Host } from "@expo/ui";
 import { Button, ConfirmationDialog, RNHostView, Text as SwiftText } from "@expo/ui/swift-ui";
-import { SymbolView } from "expo-symbols";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import Animated, { useReducedMotion } from "react-native-reanimated";
 import {
   AssistantRuntimeProvider,
@@ -28,7 +29,8 @@ import {
 import { api } from "../../../../convex/_generated/api";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
-import { IconButton, ScreenTitle, T, gap, motion, radius, space, squircle, type } from "@/components/ui/kit";
+import { GlassPill, IconButton, T, gap, motion, space, squircle, type } from "@/components/ui/kit";
+import { SuggestionCard } from "@/components/ui/suggestion-card";
 import { sf, palette, useTheme } from "@/lib/theme";
 import { tap, warning } from "@/lib/haptics";
 import { todayKey } from "@/lib/day";
@@ -38,13 +40,27 @@ import { todayKey } from "@/lib/day";
 // hands new user messages to coach.send.
 
 const SUGGESTIONS = [
-  "What's on Day 1?",
-  "Build me a 10-min morning routine",
-  "I slept badly. Adjust today.",
+  {
+    title: "What's on Day 1?",
+    subtitle: "See today's session and how it fits the week.",
+    prompt: "What's on Day 1?",
+  },
+  {
+    title: "Morning routine",
+    subtitle: "Build a 10-minute start you will actually keep.",
+    prompt: "Build me a 10-min morning routine",
+  },
+  {
+    title: "I slept badly",
+    subtitle: "Adjust today so you still get the work in.",
+    prompt: "I slept badly. Adjust today.",
+  },
 ];
 
 // Height of the floating native tab bar the composer has to clear.
 const TAB_BAR_CLEARANCE = 14;
+// Overlay chrome is a 40pt row of glass controls under the status bar.
+const CHROME_ROW = 40;
 
 const convertMessage = (m: Doc<"chatMessages">): ThreadMessageLike => ({
   id: m._id,
@@ -90,7 +106,7 @@ export default function CoachScreen() {
 function CoachThread({ error }: { error: string | null }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const pad = useScreenInsets();
+  const pad = useScreenInsets(CHROME_ROW);
   const hasMessages = useAuiState((s) => !s.thread.isEmpty);
 
   // The native tab bar sits under the content. Clear it while the keyboard is
@@ -122,11 +138,10 @@ function CoachThread({ error }: { error: string | null }) {
               }}
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
-              ListHeaderComponent={<CoachHeader hasMessages={hasMessages} />}
               ListFooterComponent={
                 <View style={{ gap: gap.row }}>
                   <AuiIf condition={(s) => s.thread.isRunning}>
-                    <TypingDots />
+                    <ThinkingDot />
                   </AuiIf>
                   {error ? (
                     <T variant="footnote" color={t.destructive} selectable>
@@ -137,7 +152,9 @@ function CoachThread({ error }: { error: string | null }) {
               }
             />
 
-            <ScreenFades topFade={28} bottom={false} />
+            <ScreenFades topFade={CHROME_ROW + space[16]} bottom={false} />
+
+            <CoachChrome hasMessages={hasMessages} />
 
             {/* Composer stays above ScreenFades; its own fade covers the tab bar. */}
             <View
@@ -149,35 +166,54 @@ function CoachThread({ error }: { error: string | null }) {
                 bottom: 0,
                 zIndex: 2,
                 paddingHorizontal: gap.screen,
-                paddingTop: space[24],
+                paddingTop: space[16],
                 paddingBottom: composerBottom,
                 gap: gap.row,
               }}
             >
               <BottomFade />
-              {!hasMessages ? <SuggestionChips /> : null}
+              {!hasMessages ? <SuggestionRow /> : null}
               <ComposerPrimitive.Root
                 style={{
                   flexDirection: "row",
                   alignItems: "flex-end",
-                  gap: gap.row,
+                  minHeight: 52,
                   backgroundColor: t.elevated,
-                  borderRadius: radius.sheet,
+                  borderRadius: 26,
                   ...squircle,
-                  paddingLeft: space[16],
-                  paddingRight: space[4],
-                  paddingVertical: space[4],
+                  paddingLeft: space[4],
+                  paddingRight: space[8],
+                  paddingVertical: space[8],
+                  gap: space[4],
                 }}
               >
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <SymbolView
+                    name="plus"
+                    size={22}
+                    tintColor={t.label}
+                    weight="regular"
+                    resizeMode="scaleAspectFit"
+                  />
+                </View>
                 <ComposerPrimitive.Input
                   placeholder="Ask anything"
                   placeholderTextColor={t.tertiaryLabel}
                   multiline
                   style={{
                     flex: 1,
-                    minHeight: 40,
+                    minHeight: 36,
                     maxHeight: 120,
-                    paddingVertical: space[8],
+                    paddingVertical: 7,
                     color: t.label,
                     fontSize: type.body.fontSize,
                     lineHeight: type.body.lineHeight,
@@ -195,54 +231,92 @@ function CoachThread({ error }: { error: string | null }) {
   );
 }
 
-function CoachHeader({ hasMessages }: { hasMessages: boolean }) {
+function CoachChrome({ hasMessages }: { hasMessages: boolean }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={{ gap: gap.group, paddingBottom: hasMessages ? space[8] : space[16] }}>
-      <ScreenTitle title="Coach" accessory={hasMessages ? <ClearChatButton /> : undefined} />
-      {!hasMessages ? (
-        <T variant="subhead">
-          Your coach knows your program, history, and goals. Ask anything, or lock in a routine.
-        </T>
-      ) : null}
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 3,
+        paddingTop: insets.top,
+        paddingHorizontal: gap.screen,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <IconButton
+        name="line.3.horizontal"
+        variant="glass"
+        accessibilityLabel="Menu"
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: insets.top,
+          height: CHROME_ROW,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <T variant="headline">Coach</T>
+      </View>
+      <GlassPill>
+        <NewChatButton hasMessages={hasMessages} />
+      </GlassPill>
     </View>
   );
 }
 
-function SuggestionChips() {
-  const t = useTheme();
+function SuggestionRow() {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: gap.row, paddingRight: space[8] }}
+      style={{ marginHorizontal: -gap.screen }}
+      contentContainerStyle={{ gap: gap.row, paddingHorizontal: gap.screen }}
     >
       {SUGGESTIONS.map((s) => (
         <ThreadPrimitive.Suggestion
-          key={s}
-          prompt={s}
+          key={s.prompt}
+          prompt={s.prompt}
           send
           onPressIn={() => tap()}
           style={({ pressed }) => ({
-            backgroundColor: t.elevated2,
-            borderRadius: radius.full,
-            paddingHorizontal: space[16],
-            paddingVertical: space[8],
-            opacity: pressed ? 0.78 : 1,
-            transform: [{ scale: pressed ? 0.97 : 1 }],
+            opacity: pressed ? 0.6 : 1,
           })}
         >
-          <T variant="caption" color={t.label}>{s}</T>
+          <SuggestionCard title={s.title} subtitle={s.subtitle} />
         </ThreadPrimitive.Suggestion>
       ))}
     </ScrollView>
   );
 }
 
-function ClearChatButton() {
+function NewChatButton({ hasMessages }: { hasMessages: boolean }) {
   const t = useTheme();
   const clearChat = useMutation(api.coach.clearChat);
   const [open, setOpen] = useState(false);
+
+  const button = (
+    <IconButton
+      name="square.and.pencil"
+      variant="plain"
+      color={t.label}
+      accessibilityLabel="New chat"
+      onPress={hasMessages ? () => setOpen(true) : undefined}
+    />
+  );
+
+  if (!hasMessages) return button;
 
   return (
     <Host matchContents colorScheme="dark" style={{ width: 40, height: 40 }}>
@@ -254,13 +328,7 @@ function ClearChatButton() {
       >
         <ConfirmationDialog.Trigger>
           <RNHostView matchContents>
-            <IconButton
-              name="trash"
-              variant="plain"
-              color={t.secondaryLabel}
-              accessibilityLabel="Clear chat"
-              onPress={() => setOpen(true)}
-            />
+            {button}
           </RNHostView>
         </ConfirmationDialog.Trigger>
         <ConfirmationDialog.Actions>
@@ -283,17 +351,17 @@ function ClearChatButton() {
 }
 
 function SendButton() {
-  const t = useTheme();
   const canSend = useAuiState((s) => s.composer.canSend ?? false);
+  if (!canSend) return null;
   return (
     <ComposerPrimitive.Send
       accessibilityLabel="Send"
-      onPressIn={() => { if (canSend) tap(); }}
+      onPressIn={() => tap()}
       style={({ pressed }) => ({
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: canSend ? t.label : t.elevated2,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: palette.label,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.78 : 1,
@@ -302,8 +370,8 @@ function SendButton() {
     >
       <SymbolView
         name="arrow.up"
-        size={18}
-        tintColor={canSend ? palette.bg : t.tertiaryLabel}
+        size={16}
+        tintColor={palette.bg}
         weight="semibold"
         resizeMode="scaleAspectFit"
       />
@@ -311,39 +379,35 @@ function SendButton() {
   );
 }
 
-function TypingDots() {
+function ThinkingDot() {
   const t = useTheme();
   const reduced = useReducedMotion();
   return (
     <View
-      accessibilityLabel="Coach is typing"
-      style={{ flexDirection: "row", alignItems: "center", gap: space[8], paddingVertical: space[8] }}
+      accessibilityLabel="Coach is thinking"
+      style={{ paddingVertical: space[8] }}
     >
-      {[0, 1, 2].map((i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: space[8],
-            height: space[8],
-            borderRadius: space[8] / 2,
-            backgroundColor: t.secondaryLabel,
-            opacity: reduced ? 0.45 : 0.3,
-            ...(reduced
-              ? {}
-              : {
-                  animationName: {
-                    from: { opacity: 0.28 },
-                    to: { opacity: 0.92 },
-                  },
-                  animationDuration: motion.duration.slow,
-                  animationDelay: i * 140,
-                  animationIterationCount: "infinite" as const,
-                  animationDirection: "alternate" as const,
-                  animationTimingFunction: "ease-in-out" as const,
-                }),
-          }}
-        />
-      ))}
+      <Animated.View
+        style={{
+          width: space[8],
+          height: space[8],
+          borderRadius: space[8] / 2,
+          backgroundColor: t.secondaryLabel,
+          opacity: reduced ? 0.45 : 0.3,
+          ...(reduced
+            ? {}
+            : {
+                animationName: {
+                  from: { opacity: 0.28 },
+                  to: { opacity: 0.92 },
+                },
+                animationDuration: motion.duration.slow,
+                animationIterationCount: "infinite" as const,
+                animationDirection: "alternate" as const,
+                animationTimingFunction: "ease-in-out" as const,
+              }),
+        }}
+      />
     </View>
   );
 }
@@ -372,16 +436,16 @@ function UserMessage() {
       style={{
         alignSelf: "flex-end",
         maxWidth: "80%",
-        backgroundColor: t.accent,
-        borderRadius: radius.card,
+        backgroundColor: t.elevated2,
+        borderRadius: 20,
         ...squircle,
         paddingHorizontal: space[16],
-        paddingVertical: space[8],
+        paddingVertical: space[12],
       }}
     >
       <MessagePrimitive.Content
         renderText={({ part }) => (
-          <T variant="callout" color={t.accentFg} selectable>{part.text}</T>
+          <T variant="body" color={t.label} selectable>{part.text}</T>
         )}
       />
     </MessagePrimitive.Root>
@@ -390,19 +454,81 @@ function UserMessage() {
 
 function AssistantMessage() {
   return (
-    <MessagePrimitive.Root style={{ alignSelf: "stretch" }}>
+    <MessagePrimitive.Root style={{ alignSelf: "stretch", gap: space[12] }}>
       <MessagePrimitive.Content
         renderText={({ part }) => <MarkdownText text={part.text} />}
       />
+      <AssistantActions />
     </MessagePrimitive.Root>
   );
 }
 
-// Tiny markdown: paragraphs, nested numbered/bulleted lists, and **bold**. No extra deps.
+function AssistantActions() {
+  const t = useTheme();
+  const [vote, setVote] = useState<"up" | "down" | null>(null);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space[12] }}>
+      <ActionIcon
+        name={vote === "up" ? "hand.thumbsup.fill" : "hand.thumbsup"}
+        label="Good response"
+        color={t.secondaryLabel}
+        onPress={() => setVote((v) => (v === "up" ? null : "up"))}
+      />
+      <ActionIcon
+        name={vote === "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown"}
+        label="Bad response"
+        color={t.secondaryLabel}
+        onPress={() => setVote((v) => (v === "down" ? null : "down"))}
+      />
+    </View>
+  );
+}
+
+function ActionIcon({
+  name,
+  label,
+  color,
+  onPress,
+}: {
+  name: SFSymbol;
+  label: string;
+  color: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => ({
+        width: 32,
+        height: 32,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <SymbolView
+        name={name}
+        size={18}
+        tintColor={color}
+        weight="regular"
+        resizeMode="scaleAspectFit"
+      />
+    </Pressable>
+  );
+}
+
+// Tiny markdown: paragraphs, nested numbered/bulleted lists, **bold**, and --- rules.
 type MdItem = { marker: string; text: string; depth: number; ordered: boolean };
-type MdBlock = { kind: "p"; text: string } | { kind: "list"; items: MdItem[] };
+type MdBlock = { kind: "p"; text: string } | { kind: "list"; items: MdItem[] } | { kind: "hr" };
 
 const LIST_RE = /^(\s*)(?:([-*\u2022])|(\d+)[.)])\s+(.*)$/;
+const HR_RE = /^(-{3,}|\*{3,}|_{3,})$/;
 
 function parseMarkdown(src: string): MdBlock[] {
   const lines = src.replace(/\r\n/g, "\n").split("\n");
@@ -416,6 +542,12 @@ function parseMarkdown(src: string): MdBlock[] {
   };
 
   for (const line of lines) {
+    if (HR_RE.test(line.trim())) {
+      flushPara();
+      const last = blocks[blocks.length - 1];
+      if (last?.kind !== "hr") blocks.push({ kind: "hr" });
+      continue;
+    }
     const m = line.match(LIST_RE);
     if (m) {
       flushPara();
@@ -466,28 +598,57 @@ function MarkdownText({ text }: { text: string }) {
   return (
     <View style={{ gap: space[12] }}>
       {blocks.map((b, i) => {
-        if (b.kind === "p") return <Inline key={i} text={b.text} color={t.label} />;
-        return (
-          <View key={i} style={{ gap: space[4] }}>
-            {b.items.map((item, j) => {
-              const sub = item.depth > 0;
-              // Breathing room before each new top-level item after the first.
-              const top = !sub && j > 0 ? space[8] : 0;
-              return (
-                <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start", marginLeft: sub ? space[24] : 0, marginTop: top }}>
-                  <Text style={{ color: t.secondaryLabel, ...(sub ? type.subhead : type.body), minWidth: sub ? space[12] : space[20], ...(item.ordered ? sf.tabular : sf.regular) }}>
-                    {item.marker}
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    {sub ? <SubInline text={item.text} color={t.secondaryLabel} /> : <Inline text={item.text} color={t.label} />}
+        if (b.kind === "hr") {
+          return <Hairline key={i} color={t.separator} />;
+        }
+        const prev = i > 0 ? blocks[i - 1] : undefined;
+        const ruleBefore =
+          prev != null &&
+          prev.kind !== "hr" &&
+          ((prev.kind === "list" && b.kind === "p") ||
+            (b.kind === "p" && /^\*\*[^*]+\*\*/.test(b.text.trim())));
+        const body =
+          b.kind === "p" ? (
+            <Inline text={b.text} color={t.label} />
+          ) : (
+            <View style={{ gap: space[4] }}>
+              {b.items.map((item, j) => {
+                const sub = item.depth > 0;
+                const top = !sub && j > 0 ? space[8] : 0;
+                return (
+                  <View key={j} style={{ flexDirection: "row", gap: space[8], alignItems: "flex-start", marginLeft: sub ? space[24] : 0, marginTop: top }}>
+                    <Text style={{ color: t.secondaryLabel, ...(sub ? type.subhead : type.body), minWidth: sub ? space[12] : space[20], ...(item.ordered ? sf.tabular : sf.regular) }}>
+                      {item.marker}
+                    </Text>
+                    <View style={{ flex: 1 }}>
+                      {sub ? <SubInline text={item.text} color={t.secondaryLabel} /> : <Inline text={item.text} color={t.label} />}
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
+          );
+        if (!ruleBefore) return <View key={i}>{body}</View>;
+        return (
+          <View key={i} style={{ gap: space[12] }}>
+            <Hairline color={t.separator} />
+            {body}
           </View>
         );
       })}
     </View>
+  );
+}
+
+function Hairline({ color }: { color: string }) {
+  return (
+    <View
+      style={{
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: color,
+        marginVertical: space[4],
+      }}
+    />
   );
 }
 
