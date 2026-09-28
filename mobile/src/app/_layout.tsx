@@ -17,7 +17,7 @@ import {
   HankenGrotesk_500Medium,
   HankenGrotesk_600SemiBold,
 } from "@expo-google-fonts/hanken-grotesk";
-import { ThemeProvider, palette } from "@/lib/theme";
+import { ThemeProvider, palette, radius } from "@/lib/theme";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -60,6 +60,17 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="signin" />
+            <Stack.Screen
+              name="settings"
+              options={{
+                presentation: "formSheet",
+                headerShown: false,
+                sheetGrabberVisible: true,
+                sheetAllowedDetents: [1],
+                sheetCornerRadius: radius.sheet,
+                contentStyle: { backgroundColor: palette.bg },
+              }}
+            />
           </Stack>
         </View>
       </ThemeProvider>

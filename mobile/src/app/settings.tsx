@@ -33,7 +33,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { Screen, ScreenFades, useScreenInsets } from "@/components/screen";
 import { Body, Display, Eyebrow } from "@/components/ui/kit";
 import { accentFromSetting, fonts, palette, useTheme } from "@/lib/theme";
@@ -104,7 +104,7 @@ function GoalField({ label, settingKey, placeholder, current }: {
 
 export default function SettingsScreen() {
   const t = useTheme();
-  const pad = useScreenInsets();
+  const pad = useScreenInsets(0, { tabBar: false });
   const { signOut } = useAuthActions();
   const settings = useQuery(api.settings.getAll);
   const setSetting = useMutation(api.settings.set);
@@ -205,7 +205,7 @@ export default function SettingsScreen() {
           </Section>
         </Form>
       </Host>
-      <ScreenFades />
+      <ScreenFades bottom={false} />
     </Screen>
   );
 }

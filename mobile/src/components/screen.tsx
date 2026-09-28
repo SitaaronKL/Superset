@@ -4,19 +4,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { MaskedView } from "@expo/ui/community/masked-view";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { palette } from "@/lib/theme";
+import { palette, space } from "@/lib/theme";
 
 // Every tab screen scrolls edge to edge: under the clock and battery at the top
 // and under the floating tab bar at the bottom. Instead of solid black bars,
 // each edge gets a blur that fades out toward the content.
 
-// Space the floating native tab bar takes above the home indicator.
 const TAB_BAR = 84;
 
 /** Content padding so the first and last rows start clear of the edges. */
-export function useScreenInsets(extraTop = 0) {
+export function useScreenInsets(extraTop = 0, opts?: { tabBar?: boolean }) {
   const insets = useSafeAreaInsets();
-  return { top: insets.top + 12 + extraTop, bottom: insets.bottom + TAB_BAR + 24 };
+  const tab = opts?.tabBar === false ? 0 : TAB_BAR;
+  return { top: insets.top + space[12] + extraTop, bottom: insets.bottom + tab + space[24] };
 }
 
 /** Page root: the page color, edge to edge. Put <ScreenFades /> right after the scroll content. */
@@ -34,14 +34,13 @@ export function ScreenFades({ topFade = 28, bottom = true }: {
   return (
     <>
       <EdgeFade edge="top" height={insets.top + topFade} />
-      {bottom && <EdgeFade edge="bottom" height={insets.bottom + TAB_BAR + 16} />}
+      {bottom && <EdgeFade edge="bottom" height={insets.bottom + TAB_BAR + space[16]} />}
     </>
   );
 }
 
 /** Blur masked by a gradient: fully blurred at the screen edge, clear toward the content. */
 export function EdgeFade({ edge, height }: { edge: "top" | "bottom"; height: number }) {
-  // At the screen edge: 1 (fully covered). Toward the content: 0 (clear).
   const stops = edge === "top"
     ? [[0, 1], [0.45, 0.9], [1, 0]]
     : [[0, 0], [0.4, 0.75], [1, 1]];
@@ -59,11 +58,9 @@ export function EdgeFade({ edge, height }: { edge: "top" | "bottom"; height: num
   );
   return (
     <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, height, [edge]: 0 }}>
-      {/* Blur that is strongest at the edge and melts into the content. */}
       <MaskedView style={StyleSheet.absoluteFill} maskElement={gradient(`mask-${edge}`, "#000", 1)}>
         <BlurView tint="systemChromeMaterialDark" intensity={60} style={StyleSheet.absoluteFill} />
       </MaskedView>
-      {/* Page-color fade on top, so content under the clock and tab bar dissolves rather than reads. */}
       {gradient(`wash-${edge}`, palette.bg, 0.92)}
     </View>
   );

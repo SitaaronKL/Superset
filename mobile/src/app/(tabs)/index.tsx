@@ -15,7 +15,8 @@ import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import {
   rampPlan, nextSetTarget, explainNextSet, type SetRecord, type SetTarget,
 } from "../../../../convex/engine";
-import { Body, Card, Display, Eyebrow, Field, Num, Pill } from "@/components/ui/kit";
+import { useRouter } from "expo-router";
+import { Body, Card, Display, Eyebrow, Field, IconButton, Num, Pill, ScreenTitle } from "@/components/ui/kit";
 import { WeekDots, weekHits } from "@/components/week-dots";
 import { RestDock } from "@/components/rest-dock";
 import { fonts, palette, useTheme } from "@/lib/theme";
@@ -72,6 +73,7 @@ function StatTile({ label, value, delta, fmt = String }: {
 
 function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const pad = useScreenInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -90,7 +92,17 @@ function TrainHome({ days }: { days: Doc<"programDays">[] }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingTop: pad.top, paddingBottom: pad.bottom }}>
-        <Display size={34}>{monthName}</Display>
+        <ScreenTitle
+          title={monthName}
+          accessory={
+            <IconButton
+              name="gearshape"
+              variant="glass"
+              accessibilityLabel="Settings"
+              onPress={() => router.push("/settings")}
+            />
+          }
+        />
 
         <Card>
           <Eyebrow>This week</Eyebrow>
