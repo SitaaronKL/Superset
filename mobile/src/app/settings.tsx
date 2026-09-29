@@ -221,6 +221,9 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      {/* Must not be the ScrollView: iOS form sheets special-case a first-child
+          ScrollView, which rendered this screen blank (and earlier overlapped the header). */}
+      <View collapsable={false} style={{ height: 0 }} />
       {/* Header lives inside the scroll content: an iOS 26 form sheet shifts its
           first ScrollView under anything fixed above it, which overlapped the list. */}
       <ScrollView
@@ -403,89 +406,94 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
         </Section>
+        {/* Native sheets live inside the ScrollView (a form sheet screen breaks with more than
+            two subviews), in a zero-size absolute box so they add no layout gap. */}
+        <View style={{ position: "absolute", width: 0, height: 0 }}>
+        <Sheet
+          isPresented={archivedOpen}
+          onDismiss={() => setArchivedOpen(false)}
+          title="Archived chats"
+          subtitle={archived && archived.length > 0 ? "Long-press a chat to unarchive or delete it." : undefined}
+        >
+          {!archived || archived.length === 0 ? (
+            <T variant="subhead">No archived chats. Archived conversations will be available here.</T>
+          ) : (
+            <View style={{ gap: space[4] }}>
+              {archived.map((th) => (
+                <ArchivedRow key={th._id} thread={th} actions={chatActions} />
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  warning();
+                  Alert.alert("Delete all archived chats?", "This can't be undone.", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Delete all", style: "destructive", onPress: () => void deleteArchived({}) },
+                  ]);
+                }}
+                style={({ pressed }) => ({ marginTop: space[12], paddingVertical: space[12], opacity: pressed ? 0.6 : 1 })}
+              >
+                <T variant="body" color={t.destructive}>Delete all archived chats</T>
+              </Pressable>
+            </View>
+          )}
+        </Sheet>
+
+        <Sheet
+          isPresented={accentOpen}
+          onDismiss={() => setAccentOpen(false)}
+          title="Accent"
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: space[16],
+              justifyContent: "center",
+              paddingVertical: space[8],
+            }}
+          >
+            {ACCENTS.map((a) => {
+              const hex = accentFromSetting(a.value);
+              const active = accent === a.value;
+              return (
+                <Pressable
+                  key={a.name}
+                  accessibilityLabel={a.name}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => pickAccent(a.value)}
+                  style={({ pressed }) => ({
+                    alignItems: "center",
+                    gap: space[8],
+                    opacity: pressed ? 0.78 : 1,
+                    width: 72,
+                  })}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: hex.hex,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {active ? (
+                      <SymbolView name="checkmark" size={16} tintColor={hex.fg} weight="bold" />
+                    ) : null}
+                  </View>
+                  <T variant="caption" numberOfLines={1} style={{ textAlign: "center" }}>{a.name}</T>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Sheet>
+        </View>
       </ScrollView>
 
-      <Sheet
-        isPresented={archivedOpen}
-        onDismiss={() => setArchivedOpen(false)}
-        title="Archived chats"
-        subtitle={archived && archived.length > 0 ? "Long-press a chat to unarchive or delete it." : undefined}
-      >
-        {!archived || archived.length === 0 ? (
-          <T variant="subhead">No archived chats. Archived conversations will be available here.</T>
-        ) : (
-          <View style={{ gap: space[4] }}>
-            {archived.map((th) => (
-              <ArchivedRow key={th._id} thread={th} actions={chatActions} />
-            ))}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                warning();
-                Alert.alert("Delete all archived chats?", "This can't be undone.", [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Delete all", style: "destructive", onPress: () => void deleteArchived({}) },
-                ]);
-              }}
-              style={({ pressed }) => ({ marginTop: space[12], paddingVertical: space[12], opacity: pressed ? 0.6 : 1 })}
-            >
-              <T variant="body" color={t.destructive}>Delete all archived chats</T>
-            </Pressable>
-          </View>
-        )}
-      </Sheet>
 
-      <Sheet
-        isPresented={accentOpen}
-        onDismiss={() => setAccentOpen(false)}
-        title="Accent"
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: space[16],
-            justifyContent: "center",
-            paddingVertical: space[8],
-          }}
-        >
-          {ACCENTS.map((a) => {
-            const hex = accentFromSetting(a.value);
-            const active = accent === a.value;
-            return (
-              <Pressable
-                key={a.name}
-                accessibilityLabel={a.name}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => pickAccent(a.value)}
-                style={({ pressed }) => ({
-                  alignItems: "center",
-                  gap: space[8],
-                  opacity: pressed ? 0.78 : 1,
-                  width: 72,
-                })}
-              >
-                <View
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: hex.hex,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {active ? (
-                    <SymbolView name="checkmark" size={16} tintColor={hex.fg} weight="bold" />
-                  ) : null}
-                </View>
-                <T variant="caption" numberOfLines={1} style={{ textAlign: "center" }}>{a.name}</T>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Sheet>
     </Screen>
   );
 }
