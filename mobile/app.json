@@ -61,6 +61,12 @@
         "projectId": "3177c6c9-02d8-47e6-ba22-c0e3a98a0d19"
       }
     },
-    "owner": "sitaaron"
+    "owner": "sitaaron",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3177c6c9-02d8-47e6-ba22-c0e3a98a0d19"
+    }
   }
 }
